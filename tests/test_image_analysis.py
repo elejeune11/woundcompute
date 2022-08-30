@@ -1,5 +1,6 @@
 import numpy as np
 from scipy import ndimage
+from skimage import morphology
 from woundcompute import image_analysis as ia
 
 
@@ -19,7 +20,7 @@ def test_apply_gaussian_filter():
     array[7, 3] = 10
     filter_size = 3
     known = ndimage.gaussian_filter(array, filter_size)
-    found = ia.apply_gaussian_filter(array,filter_size)
+    found = ia.apply_gaussian_filter(array, filter_size)
     assert np.all(known == found)
 
 
@@ -57,3 +58,16 @@ def test_apply_otsu_thresh():
     found = ia.apply_otsu_thresh(x1)
     assert np.all(known == found)
 
+
+def test_get_region_props():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 3
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
+    region_props = ia.get_region_props(array)
+    assert region_props[0].area == np.sum(disk_1)
+    assert region_props[1].area == np.sum(disk_2)

@@ -1,7 +1,8 @@
 import numpy as np
 from scipy import ndimage
 from skimage.filters import threshold_otsu
-from typing import Union
+from skimage.measure import label, regionprops
+from typing import List, Union
 
 
 def apply_median_filter(array: np.ndarray, filter_size: int) -> np.ndarray:
@@ -27,4 +28,11 @@ def apply_otsu_thresh(array: np.ndarray) -> np.ndarray:
     thresh = compute_otsu_thresh(array)
     thresh_img = array > thresh
     return thresh_img
+
+
+def get_region_props(array: np.ndarray) -> List:
+    """Given a binary image. Will return the list of region props."""
+    label_image = label(array)
+    region_props = regionprops(label_image)
+    return region_props
 
