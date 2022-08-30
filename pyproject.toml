@@ -25,6 +25,7 @@ dependencies = [
     "importlib-metadata==4.12.0",
     "iniconfig==1.1.1",
     "mccabe",
+    "numpy==1.23.2",
     "pluggy==1.0.0",
     "py==1.11.0",
     "pycodestyle",
@@ -32,6 +33,8 @@ dependencies = [
     "pyparsing==3.0.9",
     "pytest==7.1.2",
     "pytest-cov==3.0.0",
+    "scikit-image==0.19.3",
+    "scipy==1.9.1",
     "tomli==2.0.1",
     "zipp",
 ]
