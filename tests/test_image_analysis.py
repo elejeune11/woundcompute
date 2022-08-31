@@ -295,22 +295,22 @@ def test_read_tiff():
     assert np.all(known == found)
 
 
-def test_save_image():
+def test_show_and_save_image():
     self_path_file = Path(__file__)
     self_path = self_path_file.resolve().parent
     data_path = self_path.joinpath("files").resolve()
     file_path = data_path.joinpath("test_brightfield.TIF")
     file = ia.read_tiff(file_path)
     save_path = data_path.joinpath("test_brightfield_save_no_title.png")
-    ia.save_image(file, save_path)
+    ia.show_and_save_image(file, save_path)
     assert save_path.is_file()
     save_path_title = data_path.joinpath("test_brightfield_save_title.png")
     title = 'test brightfield title'
-    ia.save_image(file, save_path_title, title)
+    ia.show_and_save_image(file, save_path_title, title)
     assert save_path_title.is_file()
 
 
-def test_save_image_mask():
+def test_show_and_save_image_mask():
     self_path_file = Path(__file__)
     self_path = self_path_file.resolve().parent
     data_path = self_path.joinpath("files").resolve()
@@ -319,14 +319,52 @@ def test_save_image_mask():
     file_thresh = ia.threshold_brightfield_v1(file)
     tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_brightfield_tissue_mask.png")
-    ia.save_image(tissue_mask, save_path)
+    ia.show_and_save_image(tissue_mask, save_path)
+    assert save_path.is_file()
     save_path = data_path.joinpath("test_brightfield_wound_mask.png")
-    ia.save_image(wound_mask, save_path)
+    ia.show_and_save_image(wound_mask, save_path)
+    assert save_path.is_file()
     file_path = data_path.joinpath("test_gfp.TIF")
     file = ia.read_tiff(file_path)
     file_thresh = ia.threshold_gfp_v1(file)
     tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_gfp_tissue_mask.png")
-    ia.save_image(tissue_mask, save_path)
+    ia.show_and_save_image(tissue_mask, save_path)
+    assert save_path.is_file()
     save_path = data_path.joinpath("test_gfp_wound_mask.png")
-    ia.save_image(wound_mask, save_path)
+    ia.show_and_save_image(wound_mask, save_path)
+    assert save_path.is_file()
+
+
+def test_show_and_save_contour():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    file = ia.read_tiff(file_path)
+    file_thresh = ia.threshold_brightfield_v1(file)
+    wound_mask = ia.isolate_masks(file_thresh)[1]
+    contour = ia.mask_to_contour(wound_mask)
+    save_path = data_path.joinpath("test_brightfield_wound_contour.png")
+    ia.show_and_save_contour(file, contour, save_path)
+    assert save_path.is_file()
+
+
+def test_save_numpy():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    file = ia.read_tiff(file_path)
+    save_path = data_path.joinpath("test_brightfield_save_no_title.npy")
+    ia.save_numpy(file, save_path)
+    assert save_path.is_file()
+    file_thresh = ia.threshold_brightfield_v1(file)
+    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    save_path = data_path.joinpath("test_brightfield_tissue_mask.npy")
+    ia.save_numpy(tissue_mask, save_path)
+    assert save_path.is_file()
+    contour = ia.mask_to_contour(wound_mask)
+    save_path = data_path.joinpath("test_brightfield_tissue_contour.npy")
+    ia.save_numpy(contour, save_path)
+    assert save_path.is_file()

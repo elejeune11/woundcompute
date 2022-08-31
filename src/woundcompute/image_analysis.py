@@ -210,7 +210,8 @@ def read_tiff(img_path: Path) -> np.ndarray:
     return img
 
 
-def save_image(img_array: np.ndarray, save_path: Path, title: str = 'no_title') -> None:
+def show_and_save_image(img_array: np.ndarray, save_path: Path, title: str = 'no_title') -> None:
+    """Given an image and path location. Will plot and save image."""
     if title == 'no_title':
         plt.imsave(save_path, img_array, cmap=plt.cm.gray)
     else:
@@ -223,33 +224,28 @@ def save_image(img_array: np.ndarray, save_path: Path, title: str = 'no_title') 
     return
 
 
-# def save_numpy(img_array: np.ndarray, save_path: Path) -> None:
-#     return
+def show_and_save_contour(
+    img_array: np.ndarray,
+    contour: np.ndarray,
+    save_path: Path,
+    title: str = " "
+) -> None:
+    """Given an image, contour, and path location. Will plot and save."""
+    plt.figure()
+    plt.imshow(img_array, cmap=plt.cm.gray)
+    plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0)
+    plt.title(title)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    return
 
 
-# def plot_image():
-#     return True
+def save_numpy(array: np.ndarray, save_path: Path) -> None:
+    """Given a numpy array and path location. Will save as numpy array."""
+    np.save(save_path, array)
+    return
 
 
-# def plot_mask():
-#     return True
-
-
-# def plot_contour():
-#     return True
-
-
-# def plot_image_and_contour():
-#     return True
-
-
-# def save_image():
-#     return True
-
-
-# def save_mask():
-#     return True
-
-
-# def save_contour():
-#     return True
+# def analyze_still_image():
+# def analyze_multi_image():
