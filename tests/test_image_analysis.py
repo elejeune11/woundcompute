@@ -285,29 +285,48 @@ def test_isolate_masks_brightfield():
     assert np.all(wound_mask + tissue_mask <= 1)
 
 
-# def plot_image():
-#     return True
+def test_read_tiff():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    known = io.imread(file_path)
+    found = ia.read_tiff(file_path)
+    assert np.all(known == found)
 
 
-# def plot_mask():
-#     return True
+def test_save_image():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    file = ia.read_tiff(file_path)
+    save_path = data_path.joinpath("test_brightfield_save_no_title.png")
+    ia.save_image(file, save_path)
+    assert save_path.is_file()
+    save_path_title = data_path.joinpath("test_brightfield_save_title.png")
+    title = 'test brightfield title'
+    ia.save_image(file, save_path_title, title)
+    assert save_path_title.is_file()
 
 
-# def plot_contour():
-#     return True
-
-
-# def plot_image_and_contour():
-#     return True
-
-
-# def save_image():
-#     return True
-
-
-# def save_mask():
-#     return True
-
-
-# def save_contour():
-#     return True
+def test_save_image_mask():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    file = ia.read_tiff(file_path)
+    file_thresh = ia.threshold_brightfield_v1(file)
+    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    save_path = data_path.joinpath("test_brightfield_tissue_mask.png")
+    ia.save_image(tissue_mask, save_path)
+    save_path = data_path.joinpath("test_brightfield_wound_mask.png")
+    ia.save_image(wound_mask, save_path)
+    file_path = data_path.joinpath("test_gfp.TIF")
+    file = ia.read_tiff(file_path)
+    file_thresh = ia.threshold_gfp_v1(file)
+    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    save_path = data_path.joinpath("test_gfp_tissue_mask.png")
+    ia.save_image(tissue_mask, save_path)
+    save_path = data_path.joinpath("test_gfp_wound_mask.png")
+    ia.save_image(wound_mask, save_path)

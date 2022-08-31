@@ -1,7 +1,10 @@
+import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
 from scipy import ndimage
-from skimage.filters import threshold_otsu
+from skimage import io
 from skimage import measure
+from skimage.filters import threshold_otsu
 from skimage.measure import label, regionprops
 from typing import List, Union
 
@@ -192,5 +195,61 @@ def isolate_masks(array: np.ndarray) -> np.ndarray:
     wound_mask = coords_to_mask(wound_region_coords, array)
     # create the tissue mask
     regions_largest_coords = region_to_coords(regions_largest)
-    tissue_mask = coords_to_inverted_mask(regions_largest_coords, array)
+    tissue_mask_extra = coords_to_inverted_mask(regions_largest_coords, array)
+    region_props = get_region_props(tissue_mask_extra)
+    num_regions = 1
+    regions_largest = get_largest_regions(region_props, num_regions)
+    regions_largest_coords = region_to_coords(regions_largest)
+    tissue_mask = coords_to_mask(regions_largest_coords, array)
     return tissue_mask, wound_mask
+
+
+def read_tiff(img_path: Path) -> np.ndarray:
+    """Given a path to a tiff. Will return an array."""
+    img = io.imread(img_path)
+    return img
+
+
+def save_image(img_array: np.ndarray, save_path: Path, title: str = 'no_title') -> None:
+    if title == 'no_title':
+        plt.imsave(save_path, img_array, cmap=plt.cm.gray)
+    else:
+        plt.figure()
+        plt.imshow(img_array, cmap=plt.cm.gray)
+        plt.title(title)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(save_path)
+    return
+
+
+# def save_numpy(img_array: np.ndarray, save_path: Path) -> None:
+#     return
+
+
+# def plot_image():
+#     return True
+
+
+# def plot_mask():
+#     return True
+
+
+# def plot_contour():
+#     return True
+
+
+# def plot_image_and_contour():
+#     return True
+
+
+# def save_image():
+#     return True
+
+
+# def save_mask():
+#     return True
+
+
+# def save_contour():
+#     return True
