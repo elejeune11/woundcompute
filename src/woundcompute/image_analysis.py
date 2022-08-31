@@ -88,7 +88,7 @@ def get_closest_region(
     return regions_list[ix]
 
 
-def extract_region_props(region_props: object) -> float:
+def extract_region_props(region_props: object) -> Union[float, np.ndarray]:
     """Given region properties from skimage.measure.regionprops.
     Will return the values of relevant properties.
     See: https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops
@@ -101,6 +101,15 @@ def extract_region_props(region_props: object) -> float:
     centroid_col = centroid[1]
     coords = region_props.coords
     return area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords
+
+
+def region_to_coords(regions_list: List) -> List:
+    """Given regions list. Will return the coordinates of all regions in the list."""
+    coords_list = []
+    for region in regions_list:
+        coords = extract_region_props(region)[5]
+        coords_list.append(coords)
+    return coords_list
 
 
 def coords_to_mask(coords_list: List, array: np.ndarray) -> np.ndarray:
@@ -118,9 +127,9 @@ def invert_mask(mask: np.ndarray) -> np.ndarray:
     return invert_mask
 
 
-def coords_to_inverted_mask(coords: np.ndarray, array: np.ndarray) -> np.ndarray:
+def coords_to_inverted_mask(coords_list: List, array: np.ndarray) -> np.ndarray:
     """Given coordinates and template array. Will turn coordinates into an inverted binary mask."""
-    mask = coords_to_mask(coords, array)
+    mask = coords_to_mask(coords_list, array)
     inverted_mask = invert_mask(mask)
     return inverted_mask
 
@@ -147,17 +156,41 @@ def mask_to_area(mask: np.ndarray, pix_to_microns: Union[float, int] = 1):
     return area_scaled
 
 
-# def select_tissue_mask():
-#     return True
+def threshold_gfp_v1(array: np.ndarray) -> np.ndarray:
+    """Given a gfp image array. Will return a binary array where gfp = 0, background = 1."""
+    median_filter_size = 5
+    array_median = apply_median_filter(array, median_filter_size)
+    gaussian_filter_size = 1
+    array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
+    thresh_img = apply_otsu_thresh(array_gaussian)
+    thresh_img_inverted = invert_mask(thresh_img)
+    return thresh_img_inverted
 
 
-# def select_wound_mask():
-#     return True
+def threshold_brightfield_v1(array: np.ndarray) -> np.ndarray:
+    """Given a brightfield image array. Will return a binary array where tissue = 0, background = 1."""
+    median_filter_size = 5
+    array_median = apply_median_filter(array, median_filter_size)
+    gaussian_filter_size = 2
+    array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
+    thresh_img = apply_otsu_thresh(array_gaussian)
+    return thresh_img
 
 
-# def threshold_gfp():
-#     return True
-
-
-# def threshold_brightfield():
-#     return True
+def isolate_masks(array: np.ndarray) -> np.ndarray:
+    """Given a binary mask where background = 1. Will return a mask where `tissue' = 1.
+    Will return a mask where `wound' = 1."""
+    # select the three largest "background" regions -- side, side, wound
+    region_props = get_region_props(array)
+    num_regions = 3
+    regions_largest = get_largest_regions(region_props, num_regions)
+    # identify the wound as the "background" region closest to the center
+    center_0, center_1 = get_domain_center(array)
+    wound_region = get_closest_region(regions_largest, center_0, center_1)
+    # create the wound mask
+    wound_region_coords = region_to_coords([wound_region])
+    wound_mask = coords_to_mask(wound_region_coords, array)
+    # create the tissue mask
+    regions_largest_coords = region_to_coords(regions_largest)
+    tissue_mask = coords_to_inverted_mask(regions_largest_coords, array)
+    return tissue_mask, wound_mask

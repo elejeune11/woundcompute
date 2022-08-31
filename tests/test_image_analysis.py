@@ -1,5 +1,7 @@
 import numpy as np
+from pathlib import Path
 from scipy import ndimage
+from skimage import io
 from skimage import morphology
 from woundcompute import image_analysis as ia
 
@@ -189,3 +191,123 @@ def test_coords_to_inverted_mask():
     assert np.all(mask + mask_inverted == np.ones(mask.shape))
 
 
+def test_mask_to_area():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    region_props = ia.get_region_props(disk_1)
+    region = region_props[0]
+    coords = [ia.extract_region_props(region)[5]]
+    mask = ia.coords_to_mask(coords, disk_1)
+    pix_to_microns = 1
+    area = ia.mask_to_area(mask, pix_to_microns)
+    assert area == np.sum(disk_1)
+
+
+def test_threshold_gfp_v1():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_gfp.TIF")
+    example_file = io.imread(file_path)
+    thresh_img = ia.threshold_gfp_v1(example_file)
+    assert np.max(thresh_img) == 1
+    assert np.min(thresh_img) == 0
+    assert thresh_img.shape[0] == example_file.shape[0]
+    assert thresh_img.shape[1] == example_file.shape[1]
+
+
+def test_threshold_brightfield_v1():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    example_file = io.imread(file_path)
+    thresh_img = ia.threshold_brightfield_v1(example_file)
+    assert np.max(thresh_img) == 1
+    assert np.min(thresh_img) == 0
+    assert thresh_img.shape[0] == example_file.shape[0]
+    assert thresh_img.shape[1] == example_file.shape[1]
+
+
+def test_region_to_coords():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 3
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+    rad_3 = 2
+    disk_3 = morphology.disk(rad_3, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
+    array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
+    region_props = ia.get_region_props(array)
+    coords_list = ia.region_to_coords(region_props)
+    assert len(coords_list) == 3
+    assert coords_list[0].shape[1] == 2
+
+
+def test_isolate_masks_gfp():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_gfp.TIF")
+    example_file = io.imread(file_path)
+    thresh_img = ia.threshold_gfp_v1(example_file)
+    tissue_mask, wound_mask = ia.isolate_masks(thresh_img)
+    assert np.max(tissue_mask) == 1
+    assert np.min(tissue_mask) == 0
+    assert tissue_mask.shape[0] == tissue_mask.shape[0]
+    assert tissue_mask.shape[1] == tissue_mask.shape[1]
+    assert np.max(wound_mask) == 1
+    assert np.min(wound_mask) == 0
+    assert wound_mask.shape[0] == wound_mask.shape[0]
+    assert wound_mask.shape[1] == wound_mask.shape[1]
+    assert np.all(wound_mask + tissue_mask <= 1)
+
+
+def test_isolate_masks_brightfield():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_brightfield.TIF")
+    example_file = io.imread(file_path)
+    thresh_img = ia.threshold_brightfield_v1(example_file)
+    tissue_mask, wound_mask = ia.isolate_masks(thresh_img)
+    assert np.max(tissue_mask) == 1
+    assert np.min(tissue_mask) == 0
+    assert tissue_mask.shape[0] == tissue_mask.shape[0]
+    assert tissue_mask.shape[1] == tissue_mask.shape[1]
+    assert np.max(wound_mask) == 1
+    assert np.min(wound_mask) == 0
+    assert wound_mask.shape[0] == wound_mask.shape[0]
+    assert wound_mask.shape[1] == wound_mask.shape[1]
+    assert np.all(wound_mask + tissue_mask <= 1)
+
+
+# def plot_image():
+#     return True
+
+
+# def plot_mask():
+#     return True
+
+
+# def plot_contour():
+#     return True
+
+
+# def plot_image_and_contour():
+#     return True
+
+
+# def save_image():
+#     return True
+
+
+# def save_mask():
+#     return True
+
+
+# def save_contour():
+#     return True
