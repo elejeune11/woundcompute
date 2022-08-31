@@ -147,3 +147,45 @@ def test_extract_region_props():
     assert coords.shape[0] == np.sum(disk_1)
 
 
+def test_coords_to_mask():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    region_props = ia.get_region_props(disk_1)
+    region = region_props[0]
+    coords = [ia.extract_region_props(region)[5]]
+    mask = ia.coords_to_mask(coords, disk_1)
+    assert np.all(mask == disk_1)
+
+
+def test_mask_to_contour():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    ix = int(dim / 2)
+    array[ix - rad_1:ix + rad_1 + 1, ix - rad_1:ix + rad_1 + 1] = disk_1
+    contour = ia.mask_to_contour(array)
+    assert np.mean(contour[:, 0]) > dim / 2 - 1
+    assert np.mean(contour[:, 0]) < dim / 2 + 1
+    assert np.mean(contour[:, 1]) > dim / 2 - 1
+    assert np.mean(contour[:, 1]) < dim / 2 + 1
+
+
+def test_invert_mask():
+    array_half = np.zeros((10, 10))
+    array_half[0:5, :] = 1
+    array_invert = ia.invert_mask(array_half)
+    assert np.all(array_invert + array_half == np.ones((10, 10)))
+
+
+def test_coords_to_inverted_mask():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    region_props = ia.get_region_props(disk_1)
+    region = region_props[0]
+    coords = [ia.extract_region_props(region)[5]]
+    mask = ia.coords_to_mask(coords, disk_1)
+    mask_inverted = ia.coords_to_inverted_mask(coords, disk_1)
+    assert np.all(mask + mask_inverted == np.ones(mask.shape))
+
+
