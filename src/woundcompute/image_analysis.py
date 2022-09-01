@@ -295,4 +295,5 @@ def analyze_image(
     show_and_save_contour(file, contour, vis_path)
     return
 
+
 # def analyze_multi_image():
