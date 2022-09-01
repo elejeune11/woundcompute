@@ -5,4 +5,4 @@
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/sandialabs/sibl#license)
 
 [![tests](https://github.com/woundcompute/workflows/tests/badge.svg)](https://github.com/woundcompute/actions)
-[![codecov](https://codecov.io/gh/woundcompute/branch/main/graph/badge.svg?token=1Z716PHWAW)](https://codecov.io/gh/woundcompute)
+
