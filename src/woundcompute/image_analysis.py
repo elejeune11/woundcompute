@@ -7,6 +7,7 @@ from skimage import measure
 from skimage.filters import threshold_otsu
 from skimage.measure import label, regionprops
 from typing import List, Union
+import yaml
 
 
 def apply_median_filter(array: np.ndarray, filter_size: int) -> np.ndarray:
@@ -201,7 +202,7 @@ def isolate_masks(array: np.ndarray) -> np.ndarray:
     regions_largest = get_largest_regions(region_props, num_regions)
     regions_largest_coords = region_to_coords(regions_largest)
     tissue_mask = coords_to_mask(regions_largest_coords, array)
-    return tissue_mask, wound_mask
+    return tissue_mask, wound_mask, wound_region
 
 
 def read_tiff(img_path: Path) -> np.ndarray:
@@ -246,6 +247,56 @@ def save_numpy(array: np.ndarray, save_path: Path) -> None:
     np.save(save_path, array)
     return
 
+
+def save_yaml(
+    area: Union[float, int],
+    axis_major_length: Union[float, int],
+    axis_minor_length: Union[float, int],
+    centroid_row: Union[float, int],
+    centroid_col: Union[float, int],
+    yaml_path: Path
+) -> None:
+    """Given wound properties and yaml path. Will save properties as a yaml file."""
+    Dict = {"wound_area": area,
+            "axis_major_length": axis_major_length,
+            "axis_minor_length": axis_minor_length,
+            "centroid_row": centroid_row,
+            "centroid_col": centroid_col
+            }
+    with open(yaml_path, 'w') as outfile:
+        yaml.dump(Dict, outfile, default_flow_style=False)
+    return
+
+
+def analyze_image(
+    img_path: Path,
+    is_brightfield: bool,
+    tissue_mask_path: Path,
+    wound_mask_path: Path,
+    contour_path: Path,
+    yaml_path: Path,
+    vis_path: Path
+) -> None:
+    """Given an image path. Will run all analysis."""
+    file = read_tiff(img_path)
+    if is_brightfield:
+        file_thresh = threshold_brightfield_v1(file)
+    else:
+        file_thresh = threshold_gfp_v1(file)
+    tissue_mask, wound_mask, wound_region = isolate_masks(file_thresh)
+    contour = mask_to_contour(wound_mask)
+    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = extract_region_props(wound_region)
+    # save numpy arrays
+    save_numpy(tissue_mask, tissue_mask_path)
+    save_numpy(wound_mask, wound_mask_path)
+    save_numpy(contour, contour_path)
+    save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, yaml_path)
+    # plot and save visualization
+    show_and_save_contour(file, contour, vis_path)
+    return
+
+# def read_yaml(yaml_path: Path) -> Union[float, int]:
+# def analyze_still_image(img_path: Path, ) -> None:
 
 # def analyze_still_image():
 # def analyze_multi_image():

@@ -254,7 +254,7 @@ def test_isolate_masks_gfp():
     file_path = data_path.joinpath("test_gfp.TIF")
     example_file = io.imread(file_path)
     thresh_img = ia.threshold_gfp_v1(example_file)
-    tissue_mask, wound_mask = ia.isolate_masks(thresh_img)
+    tissue_mask, wound_mask, wound_region = ia.isolate_masks(thresh_img)
     assert np.max(tissue_mask) == 1
     assert np.min(tissue_mask) == 0
     assert tissue_mask.shape[0] == tissue_mask.shape[0]
@@ -273,7 +273,7 @@ def test_isolate_masks_brightfield():
     file_path = data_path.joinpath("test_brightfield.TIF")
     example_file = io.imread(file_path)
     thresh_img = ia.threshold_brightfield_v1(example_file)
-    tissue_mask, wound_mask = ia.isolate_masks(thresh_img)
+    tissue_mask, wound_mask, wound_region = ia.isolate_masks(thresh_img)
     assert np.max(tissue_mask) == 1
     assert np.min(tissue_mask) == 0
     assert tissue_mask.shape[0] == tissue_mask.shape[0]
@@ -317,7 +317,7 @@ def test_show_and_save_image_mask():
     file_path = data_path.joinpath("test_brightfield.TIF")
     file = ia.read_tiff(file_path)
     file_thresh = ia.threshold_brightfield_v1(file)
-    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_brightfield_tissue_mask.png")
     ia.show_and_save_image(tissue_mask, save_path)
     assert save_path.is_file()
@@ -327,7 +327,7 @@ def test_show_and_save_image_mask():
     file_path = data_path.joinpath("test_gfp.TIF")
     file = ia.read_tiff(file_path)
     file_thresh = ia.threshold_gfp_v1(file)
-    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_gfp_tissue_mask.png")
     ia.show_and_save_image(tissue_mask, save_path)
     assert save_path.is_file()
@@ -360,7 +360,7 @@ def test_save_numpy():
     ia.save_numpy(file, save_path)
     assert save_path.is_file()
     file_thresh = ia.threshold_brightfield_v1(file)
-    tissue_mask, wound_mask = ia.isolate_masks(file_thresh)
+    tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_brightfield_tissue_mask.npy")
     ia.save_numpy(tissue_mask, save_path)
     assert save_path.is_file()
@@ -368,3 +368,36 @@ def test_save_numpy():
     save_path = data_path.joinpath("test_brightfield_tissue_contour.npy")
     ia.save_numpy(contour, save_path)
     assert save_path.is_file()
+
+
+def test_save_yaml():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    region_props = ia.get_region_props(disk_1)
+    region = region_props[0]
+    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = ia.extract_region_props(region)
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    file_path = data_path.joinpath("test_save.yaml")
+    ia.save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, file_path)
+    assert file_path.is_file()
+
+
+def test_analyze_image():
+    self_path_file = Path(__file__)
+    self_path = self_path_file.resolve().parent
+    data_path = self_path.joinpath("files").resolve()
+    img_path = data_path.joinpath("test_brightfield.TIF")
+    is_brightfield = True
+    tissue_mask_path = data_path.joinpath("test_brightfield_tissue_mask.npy")
+    wound_mask_path = data_path.joinpath("test_brightfield_wound_mask.npy")
+    contour_path = data_path.joinpath("test_brightfield_contour.npy")
+    yaml_path = data_path.joinpath("test_brightfield_values.yaml")
+    vis_path = data_path.joinpath("test_brightfield_visualize.png")
+    ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
+    assert tissue_mask_path.is_file()
+    assert wound_mask_path.is_file()
+    assert contour_path.is_file()
+    assert yaml_path.is_file()
+    assert vis_path.is_file()
