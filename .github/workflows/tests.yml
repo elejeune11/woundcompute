@@ -45,7 +45,7 @@ jobs:
         pytest -v
     - name: Generate coverage report
       run: |
-        pytest --cov=atpixel --cov-report=xml
+        pytest --cov=woundcompute --cov-report=xml
     - name: Upload coverage to Codecov
       # https://github.com/codecov/codecov-action/blob/master/README.md
       uses: codecov/codecov-action@v3
