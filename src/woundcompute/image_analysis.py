@@ -295,8 +295,4 @@ def analyze_image(
     show_and_save_contour(file, contour, vis_path)
     return
 
-# def read_yaml(yaml_path: Path) -> Union[float, int]:
-# def analyze_still_image(img_path: Path, ) -> None:
-
-# def analyze_still_image():
 # def analyze_multi_image():
