@@ -25,6 +25,7 @@ def glob_brightfield(example_name):
     folder_path = example_path(example_name)
     bf_path = folder_path.joinpath("brightfield_images").resolve()
     name_list = glob.glob(str(bf_path) + '/*.TIF')
+    name_list.sort()
     name_list_path = []
     for name in name_list:
         name_list_path.append(Path(name))
@@ -35,6 +36,7 @@ def glob_fluorescent(example_name):
     folder_path = example_path(example_name)
     fl_path = folder_path.joinpath("fluorescent_images").resolve()
     name_list = glob.glob(str(fl_path) + '/*.TIF')
+    name_list.sort()
     name_list_path = []
     for name in name_list:
         name_list_path.append(Path(name))
@@ -411,38 +413,6 @@ def test_save_yaml():
     assert file_path.is_file()
 
 
-def test_analyze_image_bf():
-    img_path = glob_brightfield("test_single")[0]
-    is_brightfield = True
-    tissue_mask_path = output_file("test_single", "test_brightfield_tissue_mask.npy")
-    wound_mask_path = output_file("test_single", "test_brightfield_wound_mask.npy")
-    contour_path = output_file("test_single", "test_brightfield_contour.npy")
-    yaml_path = output_file("test_single", "test_brightfield_values.yaml")
-    vis_path = output_file("test_single", "test_brightfield_visualize.png")
-    ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
-    assert tissue_mask_path.is_file()
-    assert wound_mask_path.is_file()
-    assert contour_path.is_file()
-    assert yaml_path.is_file()
-    assert vis_path.is_file()
-
-
-def test_analyze_image_gfp():
-    img_path = glob_fluorescent("test_single")[0]
-    is_brightfield = False
-    tissue_mask_path = output_file("test_single", "test_fluorescent_tissue_mask.npy")
-    wound_mask_path = output_file("test_single", "test_fluorescent_wound_mask.npy")
-    contour_path = output_file("test_single", "test_fluorescent_contour.npy")
-    yaml_path = output_file("test_single", "test_fluorescent_values.yaml")
-    vis_path = output_file("test_single", "test_fluorescent_visualize.png")
-    ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
-    assert tissue_mask_path.is_file()
-    assert wound_mask_path.is_file()
-    assert contour_path.is_file()
-    assert yaml_path.is_file()
-    assert vis_path.is_file()
-
-
 def test_yml_to_dict():
     input_file_path = glob_yaml("test_single")
     db = ia._yml_to_dict(yml_path_file=input_file_path)
@@ -458,6 +428,42 @@ def test_yml_to_dict():
     assert db["track_bf_visualize"] is False
     assert db["bf_seg_with_fl_seg_visualize"] is False
     assert db["bf_track_with_fl_seg_visualize"] is False
+
+
+def test_input_info_to_input_dict():
+    folder_path = example_path("test_single")
+    db = ia.input_info_to_input_dict(folder_path)
+    assert db["version"] == 1.0
+    assert db["segment_brightfield"] is True
+    assert db["seg_bf_version"] == 1
+    assert db["seg_bf_visualize"] is False
+    assert db["segment_fluorescent"] is True
+    assert db["seg_fl_verison"] == 1
+    assert db["seg_fl_visualize"] is False
+    assert db["track_brightfield"] is False
+    assert db["track_bf_version"] == 1
+    assert db["track_bf_visualize"] is False
+    assert db["bf_seg_with_fl_seg_visualize"] is False
+    assert db["bf_track_with_fl_seg_visualize"] is False
+
+
+def test_input_info_to_input_paths():
+    folder_path = example_path("test_single")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    assert path_dict["brightfield_images_path"].is_dir()
+    assert path_dict["fluorescent_images_path"].is_dir()
+    folder_path = example_path("test_io")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    assert path_dict["brightfield_images_path"] is None
+    assert path_dict["fluorescent_images_path"] is None
+
+
+def test_image_folder_to_path_list():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    path_list = ia.image_folder_to_path_list(path_dict["brightfield_images_path"])
+    assert len(path_list) == 5
+    assert str(path_list[-1])[-8:] == "0020.TIF"
 
 
 def test_when_io_fails():
@@ -517,7 +523,7 @@ def test_input_info_to_output_folders_create_all():
     folder_path = io_path.joinpath("all_true").resolve()
     yaml_path = folder_path.joinpath("all_true.yaml").resolve()
     input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
-    path_dict = ia.input_info_to_output_folders(folder_path, input_dict)
+    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     for key in path_dict:
         assert path_dict[key].is_dir()
 
@@ -527,6 +533,65 @@ def test_input_info_to_output_folders_create_none():
     folder_path = io_path.joinpath("all_false").resolve()
     yaml_path = folder_path.joinpath("all_false.yaml").resolve()
     input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
-    path_dict = ia.input_info_to_output_folders(folder_path, input_dict)
+    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     for key in path_dict:
         assert path_dict[key] is None
+
+
+def test_input_info_to_dicts():
+    folder_path = example_path("test_single")
+    db, input_path_dict, output_path_dict = ia.input_info_to_dicts(folder_path)
+    assert db["version"] == 1.0
+    assert db["segment_brightfield"] is True
+    assert db["seg_bf_version"] == 1
+    assert db["seg_bf_visualize"] is False
+    assert db["segment_fluorescent"] is True
+    assert db["seg_fl_verison"] == 1
+    assert db["seg_fl_visualize"] is False
+    assert db["track_brightfield"] is False
+    assert db["track_bf_version"] == 1
+    assert db["track_bf_visualize"] is False
+    assert db["bf_seg_with_fl_seg_visualize"] is False
+    assert db["bf_track_with_fl_seg_visualize"] is False
+    assert input_path_dict["brightfield_images_path"].is_dir()
+    assert input_path_dict["fluorescent_images_path"].is_dir()
+    assert output_path_dict["segment_brightfield_path"].is_dir()
+    assert output_path_dict["segment_brightfield_vis_path"] is None
+    assert output_path_dict["segment_fluorescent_path"].is_dir()
+    assert output_path_dict["segment_fluorescent_vis_path"] is None
+    assert output_path_dict["track_brightfield_path"] is None
+    assert output_path_dict["track_brightfield_vis_path"] is None
+    assert output_path_dict["bf_seg_with_fl_seg_visualize_path"] is None
+    assert output_path_dict["bf_track_with_fl_seg_visualize_path"] is None
+
+
+# def test_analyze_image_bf():
+#     img_path = glob_brightfield("test_single")[0]
+#     is_brightfield = True
+#     tissue_mask_path = output_file("test_single", "test_brightfield_tissue_mask.npy")
+#     wound_mask_path = output_file("test_single", "test_brightfield_wound_mask.npy")
+#     contour_path = output_file("test_single", "test_brightfield_contour.npy")
+#     yaml_path = output_file("test_single", "test_brightfield_values.yaml")
+#     vis_path = output_file("test_single", "test_brightfield_visualize.png")
+#     ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
+#     assert tissue_mask_path.is_file()
+#     assert wound_mask_path.is_file()
+#     assert contour_path.is_file()
+#     assert yaml_path.is_file()
+#     assert vis_path.is_file()
+
+
+# def test_analyze_image_gfp():
+#     img_path = glob_fluorescent("test_single")[0]
+#     is_brightfield = False
+#     tissue_mask_path = output_file("test_single", "test_fluorescent_tissue_mask.npy")
+#     wound_mask_path = output_file("test_single", "test_fluorescent_wound_mask.npy")
+#     contour_path = output_file("test_single", "test_fluorescent_contour.npy")
+#     yaml_path = output_file("test_single", "test_fluorescent_values.yaml")
+#     vis_path = output_file("test_single", "test_fluorescent_visualize.png")
+#     ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
+#     assert tissue_mask_path.is_file()
+#     assert wound_mask_path.is_file()
+#     assert contour_path.is_file()
+#     assert yaml_path.is_file()
+#     assert vis_path.is_file()

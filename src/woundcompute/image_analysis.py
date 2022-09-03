@@ -1,3 +1,4 @@
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -269,34 +270,6 @@ def save_yaml(
     return
 
 
-def analyze_image(
-    img_path: Path,
-    is_brightfield: bool,
-    tissue_mask_path: Path,
-    wound_mask_path: Path,
-    contour_path: Path,
-    yaml_path: Path,
-    vis_path: Path
-) -> None:
-    """Given an image path. Will run all analysis."""
-    file = read_tiff(img_path)
-    if is_brightfield:
-        file_thresh = threshold_brightfield_v1(file)
-    else:
-        file_thresh = threshold_gfp_v1(file)
-    tissue_mask, wound_mask, wound_region = isolate_masks(file_thresh)
-    contour = mask_to_contour(wound_mask)
-    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = extract_region_props(wound_region)
-    # save numpy arrays
-    save_numpy(tissue_mask, tissue_mask_path)
-    save_numpy(wound_mask, wound_mask_path)
-    save_numpy(contour, contour_path)
-    save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, yaml_path)
-    # plot and save visualization
-    show_and_save_contour(file, contour, vis_path)
-    return
-
-
 def _yml_to_dict(*, yml_path_file: Path) -> dict:
     """Given a valid Path to a yml input file, read it in and
     return the result as a dictionary."""
@@ -364,7 +337,7 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
     return db
 
 
-def create_folder(folder_path: Path, new_folder_name: str) -> None:
+def create_folder(folder_path: Path, new_folder_name: str) -> Path:
     """Given a path to a directory and a folder name. Will create a directory in the given directory."""
     new_path = folder_path.joinpath(new_folder_name).resolve()
     if new_path.exists() is False:
@@ -372,7 +345,41 @@ def create_folder(folder_path: Path, new_folder_name: str) -> None:
     return new_path
 
 
-def input_info_to_output_folders(folder_path: Path, input_dict: dict) -> dict:
+def input_info_to_input_dict(folder_path: Path) -> dict:
+    """Given a folder path that contains a yaml file. Will return the input dictionary."""
+    yaml_name_list = glob.glob(str(folder_path) + '/*.yaml') + glob.glob(str(folder_path) + '/*.yml')
+    yml_path_file = Path(yaml_name_list[0])
+    input_dict = _yml_to_dict(yml_path_file=yml_path_file)
+    return input_dict
+
+
+def input_info_to_input_paths(folder_path: Path) -> dict:
+    """Given a folder path. Will return the path to the image folders."""
+    path_dict = {}
+    bf_path = folder_path.joinpath("brightfield_images").resolve()
+    if bf_path.is_dir():
+        path_dict["brightfield_images_path"] = bf_path
+    else:
+        path_dict["brightfield_images_path"] = None
+    fl_path = folder_path.joinpath("fluorescent_images").resolve()
+    if fl_path.is_dir():
+        path_dict["fluorescent_images_path"] = fl_path
+    else:
+        path_dict["fluorescent_images_path"] = None
+    return path_dict
+
+
+def image_folder_to_path_list(folder_path: Path) -> List:
+    """Given a folder path. Will return the path to all files in that path in order."""
+    name_list = glob.glob(str(folder_path) + '/*.TIF')
+    name_list.sort()
+    name_list_path = []
+    for name in name_list:
+        name_list_path.append(Path(name))
+    return name_list_path
+
+
+def input_info_to_output_paths(folder_path: Path, input_dict: dict) -> dict:
     """Given a path to a directory and the input information. Will create output directories."""
     path_dict = {}
     if input_dict["segment_brightfield"] is True:
@@ -416,6 +423,45 @@ def input_info_to_output_folders(folder_path: Path, input_dict: dict) -> dict:
     else:
         path_dict["bf_track_with_fl_seg_visualize_path"] = None
     return path_dict
+
+
+def input_info_to_dicts(folder_path: Path) -> dict:
+    """Given a folder path. Will get input and output dictionaries set up."""
+    input_dict = input_info_to_input_dict(folder_path)
+    input_path_dict = input_info_to_input_paths(folder_path)
+    output_path_dict = input_info_to_output_paths(folder_path, input_dict)
+    return input_dict, input_path_dict, output_path_dict
+
+
+# def (input_path_dict: dict, output_path_dict: dict)
+
+# def analyze_image(
+#     img_path: Path,
+#     is_brightfield: bool,
+#     tissue_mask_path: Path,
+#     wound_mask_path: Path,
+#     contour_path: Path,
+#     yaml_path: Path,
+#     vis_path: Path
+# ) -> None:
+#     """Given an image path. Will run all analysis."""
+#     file = read_tiff(img_path)
+#     if is_brightfield:
+#         file_thresh = threshold_brightfield_v1(file)
+#     else:
+#         file_thresh = threshold_gfp_v1(file)
+#     tissue_mask, wound_mask, wound_region = isolate_masks(file_thresh)
+#     contour = mask_to_contour(wound_mask)
+#     area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = extract_region_props(wound_region)
+#     # save numpy arrays
+#     save_numpy(tissue_mask, tissue_mask_path)
+#     save_numpy(wound_mask, wound_mask_path)
+#     save_numpy(contour, contour_path)
+#     save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, yaml_path)
+#     # plot and save visualization
+#     show_and_save_contour(file, contour, vis_path)
+#     return
+
 
 # def read_tiff_stack(img_path: Path) -> np.ndarray:
 
