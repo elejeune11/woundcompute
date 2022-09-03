@@ -50,7 +50,7 @@ def glob_yaml(example_name):
 
 
 def yaml_test(test_name):
-    folder_path = example_path("test_yaml_read")
+    folder_path = example_path("test_io")
     output_path = folder_path.joinpath(test_name).resolve()
     return output_path
 
@@ -411,7 +411,7 @@ def test_save_yaml():
     assert file_path.is_file()
 
 
-def test_analyze_image():
+def test_analyze_image_bf():
     img_path = glob_brightfield("test_single")[0]
     is_brightfield = True
     tissue_mask_path = output_file("test_single", "test_brightfield_tissue_mask.npy")
@@ -419,6 +419,22 @@ def test_analyze_image():
     contour_path = output_file("test_single", "test_brightfield_contour.npy")
     yaml_path = output_file("test_single", "test_brightfield_values.yaml")
     vis_path = output_file("test_single", "test_brightfield_visualize.png")
+    ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
+    assert tissue_mask_path.is_file()
+    assert wound_mask_path.is_file()
+    assert contour_path.is_file()
+    assert yaml_path.is_file()
+    assert vis_path.is_file()
+
+
+def test_analyze_image_gfp():
+    img_path = glob_fluorescent("test_single")[0]
+    is_brightfield = False
+    tissue_mask_path = output_file("test_single", "test_fluorescent_tissue_mask.npy")
+    wound_mask_path = output_file("test_single", "test_fluorescent_wound_mask.npy")
+    contour_path = output_file("test_single", "test_fluorescent_contour.npy")
+    yaml_path = output_file("test_single", "test_fluorescent_values.yaml")
+    vis_path = output_file("test_single", "test_fluorescent_visualize.png")
     ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
     assert tissue_mask_path.is_file()
     assert wound_mask_path.is_file()
@@ -481,9 +497,36 @@ def test_when_io_fails():
 
 
 def test_create_folder():
-    folder_path = example_path("test_single")
+    folder_path = example_path("test_io")
     new_folder_name = "test_create_folder"
-    ia.create_folder(folder_path, new_folder_name)
-    new_folder = folder_path.joinpath(new_folder_name).resolve()
+    new_folder = ia.create_folder(folder_path, new_folder_name)
     assert new_folder.is_dir()
 
+
+def test_create_folder_guaranteed_conditions():
+    folder_path = example_path("test_io")
+    new_folder_name = "test_create_folder_%i" % (np.random.random() * 1000000)
+    new_folder = ia.create_folder(folder_path, new_folder_name)
+    assert new_folder.is_dir()
+    new_folder = ia.create_folder(folder_path, new_folder_name)
+    assert new_folder.is_dir()
+
+
+def test_input_info_to_output_folders_create_all():
+    io_path = example_path("test_io")
+    folder_path = io_path.joinpath("all_true").resolve()
+    yaml_path = folder_path.joinpath("all_true.yaml").resolve()
+    input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
+    path_dict = ia.input_info_to_output_folders(folder_path, input_dict)
+    for key in path_dict:
+        assert path_dict[key].is_dir()
+
+
+def test_input_info_to_output_folders_create_none():
+    io_path = example_path("test_io")
+    folder_path = io_path.joinpath("all_false").resolve()
+    yaml_path = folder_path.joinpath("all_false.yaml").resolve()
+    input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
+    path_dict = ia.input_info_to_output_folders(folder_path, input_dict)
+    for key in path_dict:
+        assert path_dict[key] is None

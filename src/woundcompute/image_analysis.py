@@ -369,7 +369,53 @@ def create_folder(folder_path: Path, new_folder_name: str) -> None:
     new_path = folder_path.joinpath(new_folder_name).resolve()
     if new_path.exists() is False:
         os.mkdir(new_path)
-    return
+    return new_path
+
+
+def input_info_to_output_folders(folder_path: Path, input_dict: dict) -> dict:
+    """Given a path to a directory and the input information. Will create output directories."""
+    path_dict = {}
+    if input_dict["segment_brightfield"] is True:
+        segment_brightfield_path = create_folder(folder_path, "segment_brightfield")
+        path_dict["segment_brightfield_path"] = segment_brightfield_path
+    else:
+        path_dict["segment_brightfield_path"] = None
+    if input_dict["seg_bf_visualize"] is True:
+        segment_brightfield_vis_path = create_folder(segment_brightfield_path, "visualizations")
+        path_dict["segment_brightfield_vis_path"] = segment_brightfield_vis_path
+    else:
+        path_dict["segment_brightfield_vis_path"] = None
+    if input_dict["segment_fluorescent"] is True:
+        segment_fluorescent_path = create_folder(folder_path, "segment_fluorescent")
+        path_dict["segment_fluorescent_path"] = segment_fluorescent_path
+    else:
+        path_dict["segment_fluorescent_path"] = None
+    if input_dict["seg_fl_visualize"] is True:
+        segment_fluorescent_vis_path = create_folder(segment_fluorescent_path, "visualizations")
+        path_dict["segment_fluorescent_vis_path"] = segment_fluorescent_vis_path
+    else:
+        path_dict["segment_fluorescent_vis_path"] = None
+    if input_dict["track_brightfield"] is True:
+        track_brightfield_path = create_folder(folder_path, "track_brightfield")
+        path_dict["track_brightfield_path"] = track_brightfield_path
+    else:
+        path_dict["track_brightfield_path"] = None
+    if input_dict["track_bf_visualize"] is True:
+        track_brightfield_vis_path = create_folder(track_brightfield_path, "visualizations")
+        path_dict["track_brightfield_vis_path"] = track_brightfield_vis_path
+    else:
+        path_dict["track_brightfield_vis_path"] = None
+    if input_dict["bf_seg_with_fl_seg_visualize"] is True:
+        bf_seg_with_fl_seg_visualize_path = create_folder(folder_path, "bf_seg_with_fl_seg_visualize")
+        path_dict["bf_seg_with_fl_seg_visualize_path"] = bf_seg_with_fl_seg_visualize_path
+    else:
+        path_dict["bf_seg_with_fl_seg_visualize_path"] = None
+    if input_dict["bf_track_with_fl_seg_visualize"] is True:
+        bf_track_with_fl_seg_visualize_path = create_folder(folder_path, "bf_track_with_fl_seg_visualize")
+        path_dict["bf_track_with_fl_seg_visualize_path"] = bf_track_with_fl_seg_visualize_path
+    else:
+        path_dict["bf_track_with_fl_seg_visualize_path"] = None
+    return path_dict
 
 # def read_tiff_stack(img_path: Path) -> np.ndarray:
 
