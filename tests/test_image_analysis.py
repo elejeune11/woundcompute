@@ -478,3 +478,12 @@ def test_when_io_fails():
         input_file = yaml_test("bad_load.yaml")
         ia._yml_to_dict(yml_path_file=input_file)
     assert error.typename == "OSError"
+
+
+def test_create_folder():
+    folder_path = example_path("test_single")
+    new_folder_name = "test_create_folder"
+    ia.create_folder(folder_path, new_folder_name)
+    new_folder = folder_path.joinpath(new_folder_name).resolve()
+    assert new_folder.is_dir()
+

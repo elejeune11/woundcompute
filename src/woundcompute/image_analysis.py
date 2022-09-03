@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from pathlib import Path
 from scipy import ndimage
 from skimage import io
@@ -362,6 +363,13 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             raise KeyError(f"Input files must have these keys defined: {required_keys}")
     return db
 
+
+def create_folder(folder_path: Path, new_folder_name: str) -> None:
+    """Given a path to a directory and a folder name. Will create a directory in the given directory."""
+    new_path = folder_path.joinpath(new_folder_name).resolve()
+    if new_path.exists() is False:
+        os.mkdir(new_path)
+    return
 
 # def read_tiff_stack(img_path: Path) -> np.ndarray:
 
