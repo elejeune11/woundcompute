@@ -6,8 +6,8 @@ seg_bf_visualize: True
 segment_fluorescent: True
 seg_fl_version: 1
 seg_fl_visualize: True
-track_brightfield: True
+track_brightfield: False
 track_bf_version: 1
-track_bf_visualize: True
+track_bf_visualize: False
 bf_seg_with_fl_seg_visualize: True
-bf_track_with_fl_seg_visualize: True
+bf_track_with_fl_seg_visualize: False

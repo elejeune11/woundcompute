@@ -162,25 +162,27 @@ def mask_to_area(mask: np.ndarray, pix_to_microns: Union[float, int] = 1):
     return area_scaled
 
 
-def threshold_gfp_v1(array: np.ndarray) -> np.ndarray:
-    """Given a gfp image array. Will return a binary array where gfp = 0, background = 1."""
-    median_filter_size = 5
-    array_median = apply_median_filter(array, median_filter_size)
-    gaussian_filter_size = 1
-    array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
-    thresh_img = apply_otsu_thresh(array_gaussian)
-    thresh_img_inverted = invert_mask(thresh_img)
-    return thresh_img_inverted
-
-
-def threshold_brightfield_v1(array: np.ndarray) -> np.ndarray:
-    """Given a brightfield image array. Will return a binary array where tissue = 0, background = 1."""
-    median_filter_size = 5
-    array_median = apply_median_filter(array, median_filter_size)
-    gaussian_filter_size = 2
-    array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
-    thresh_img = apply_otsu_thresh(array_gaussian)
-    return thresh_img
+def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
+    """Given an image wrray. Will return a binary array where object = 0, background = 1."""
+    if selection_idx == 1:
+        """Given a brightfield image array. Will return a binary array where tissue = 0, background = 1."""
+        median_filter_size = 5
+        array_median = apply_median_filter(array, median_filter_size)
+        gaussian_filter_size = 2
+        array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
+        thresh_img = apply_otsu_thresh(array_gaussian)
+        return thresh_img
+    elif selection_idx == 2:
+        """Given a gfp image array. Will return a binary array where gfp = 0, background = 1."""
+        median_filter_size = 5
+        array_median = apply_median_filter(array, median_filter_size)
+        gaussian_filter_size = 1
+        array_gaussian = apply_gaussian_filter(array_median, gaussian_filter_size)
+        thresh_img = apply_otsu_thresh(array_gaussian)
+        thresh_img_inverted = invert_mask(thresh_img)
+        return thresh_img_inverted
+    else:
+        raise ValueError("specified version is not supported")
 
 
 def isolate_masks(array: np.ndarray) -> np.ndarray:
@@ -250,24 +252,24 @@ def save_numpy(array: np.ndarray, save_path: Path) -> None:
     return
 
 
-def save_yaml(
-    area: Union[float, int],
-    axis_major_length: Union[float, int],
-    axis_minor_length: Union[float, int],
-    centroid_row: Union[float, int],
-    centroid_col: Union[float, int],
-    yaml_path: Path
-) -> None:
-    """Given wound properties and yaml path. Will save properties as a yaml file."""
-    Dict = {"wound_area": area,
-            "axis_major_length": axis_major_length,
-            "axis_minor_length": axis_minor_length,
-            "centroid_row": centroid_row,
-            "centroid_col": centroid_col
-            }
-    with open(yaml_path, 'w') as outfile:
-        yaml.dump(Dict, outfile, default_flow_style=False)
-    return
+# def save_yaml(
+#     area: Union[float, int],
+#     axis_major_length: Union[float, int],
+#     axis_minor_length: Union[float, int],
+#     centroid_row: Union[float, int],
+#     centroid_col: Union[float, int],
+#     yaml_path: Path
+# ) -> None:
+#     """Given wound properties and yaml path. Will save properties as a yaml file."""
+#     Dict = {"wound_area": area,
+#             "axis_major_length": axis_major_length,
+#             "axis_minor_length": axis_minor_length,
+#             "centroid_row": centroid_row,
+#             "centroid_col": centroid_col
+#             }
+#     with open(yaml_path, 'w') as outfile:
+#         yaml.dump(Dict, outfile, default_flow_style=False)
+#     return
 
 
 def _yml_to_dict(*, yml_path_file: Path) -> dict:
@@ -317,7 +319,7 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             "seg_bf_version",
             "seg_bf_visualize",
             "segment_fluorescent",
-            "seg_fl_verison",
+            "seg_fl_version",
             "seg_fl_visualize",
             "track_brightfield",
             "track_bf_version",
@@ -433,6 +435,113 @@ def input_info_to_dicts(folder_path: Path) -> dict:
     return input_dict, input_path_dict, output_path_dict
 
 
+def select_threshold_function(input_dict: dict, is_brightfield: bool) -> int:
+    """Given setup information. Will return which segmentation function to run."""
+    if is_brightfield and input_dict["seg_bf_version"] == 1:
+        return 1
+    elif is_brightfield is False and input_dict["seg_fl_version"] == 1:
+        return 2
+    else:
+        raise ValueError("specified version is not supported")
+
+
+def read_all_tiff(folder_path: Path) -> List:
+    """Given a folder path. Will return a list of all tiffs as an array."""
+    path_list = image_folder_to_path_list(folder_path)
+    tiff_list = []
+    for path in path_list:
+        array = read_tiff(path)
+        tiff_list.append(array)
+    return tiff_list
+
+
+def save_all_numpy(folder_path: Path, file_name: str, array_list: List) -> None:
+    """Given a folder path, file name, and array list. Will save the array as individual numpy arrays"""
+    file_name_list = []
+    for kk in range(0, len(array_list)):
+        save_path = folder_path.joinpath(file_name + "_%05d.npy" % (kk)).resolve()
+        save_numpy(array_list[kk], save_path)
+        file_name_list.append(save_path)
+    return file_name_list
+
+
+def save_list(folder_path: Path, file_name: str, value_list: List):
+    """Given a folder path, file name, and array list. Will save the array as a numpy array"""
+    array = np.asarray(value_list)
+    file_path = folder_path.joinpath(file_name + '.txt').resolve()
+    np.savetxt(file_path, array)
+    return file_path
+
+
+def threshold_all(img_list: List, threshold_function_idx: int) -> List:
+    """Given an image list and function index. Will apply threshold to all images."""
+    thresholded_list = []
+    for img in img_list:
+        thresh_img = threshold_array(img, threshold_function_idx)
+        thresholded_list.append(thresh_img)
+    return thresholded_list
+
+
+def mask_all(thresh_img_list: List) -> List:
+    """Given a thresholded image list. Will return masks and wound regions."""
+    tissue_mask_list = []
+    wound_mask_list = []
+    wound_region_list = []
+    for thresh_img in thresh_img_list:
+        tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img)
+        tissue_mask_list.append(tissue_mask)
+        wound_mask_list.append(wound_mask)
+        wound_region_list.append(wound_region)
+    return tissue_mask_list, wound_mask_list, wound_region_list
+
+
+def contour_all(wound_mask_list: List) -> List:
+    """Given a wound mask list. Will return a contour list."""
+    contour_list = []
+    for wound_mask in wound_mask_list:
+        contour = mask_to_contour(wound_mask)
+        contour_list.append(contour)
+    return contour_list
+
+
+def parameters_all(wound_region_list: List) -> List:
+    """Given a wound regions list. Will return wound properties list"""
+    area_list = []
+    axis_major_length_list = []
+    axis_minor_length_list = []
+    for wound_region in wound_region_list:
+        area, axis_major_length, axis_minor_length, _, _, _ = extract_region_props(wound_region)
+        area_list.append(area)
+        axis_major_length_list.append(axis_major_length)
+        axis_minor_length_list.append(axis_minor_length)
+    return area_list, axis_major_length_list, axis_minor_length_list
+
+
+def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int) -> List:
+    """Given input and output information. Will run the complete segmentation process."""
+    # read the inputs
+    img_list = read_all_tiff(input_path)
+    # apply threshold
+    thresholded_list = threshold_all(img_list, threshold_function_idx)
+    # masking
+    tissue_mask_list, wound_mask_list, wound_region_list = mask_all(thresholded_list)
+    # contour
+    contour_list = contour_all(wound_mask_list)
+    # parameters
+    area_list, axis_major_length_list, axis_minor_length_list = parameters_all(wound_region_list)
+    # save numpy arrays
+    wound_name_list = save_all_numpy(output_path, "wound_mask", wound_mask_list)
+    tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list)
+    contour_name_list = save_all_numpy(output_path, "contour_coords", contour_list)
+    # save lists
+    area_path = save_list(output_path, "wound_area_vs_frame", area_list)
+    ax_maj_path = save_list(output_path, "wound_major_axis_length_vs_frame", axis_major_length_list)
+    ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
+    return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path
+
+# def run_segment_visualize():
+# def run_bf_seg_vs_fl_seg_visualize():
+# def run_all():
 # def (input_path_dict: dict, output_path_dict: dict)
 
 # def analyze_image(
@@ -462,7 +571,6 @@ def input_info_to_dicts(folder_path: Path) -> dict:
 #     show_and_save_contour(file, contour, vis_path)
 #     return
 
-
 # def read_tiff_stack(img_path: Path) -> np.ndarray:
 
-# def analyze_multi_image():
+# def analyze_multi_image()

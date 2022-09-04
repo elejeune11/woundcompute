@@ -260,24 +260,27 @@ def test_mask_to_area():
     assert area == np.sum(disk_1)
 
 
-def test_threshold_gfp_v1():
-    file_path = glob_fluorescent("test_single")[0]
-    example_file = io.imread(file_path)
-    thresh_img = ia.threshold_gfp_v1(example_file)
-    assert np.max(thresh_img) == 1
-    assert np.min(thresh_img) == 0
-    assert thresh_img.shape[0] == example_file.shape[0]
-    assert thresh_img.shape[1] == example_file.shape[1]
-
-
-def test_threshold_brightfield_v1():
+def test_threshold_all():
+    # brightfield use case
     file_path = glob_brightfield("test_single")[0]
     example_file = io.imread(file_path)
-    thresh_img = ia.threshold_brightfield_v1(example_file)
+    thresh_img = ia.threshold_array(example_file, 1)
     assert np.max(thresh_img) == 1
     assert np.min(thresh_img) == 0
     assert thresh_img.shape[0] == example_file.shape[0]
     assert thresh_img.shape[1] == example_file.shape[1]
+    # fluorescent use case
+    file_path = glob_fluorescent("test_single")[0]
+    example_file = io.imread(file_path)
+    thresh_img = ia.threshold_array(example_file, 2)
+    assert np.max(thresh_img) == 1
+    assert np.min(thresh_img) == 0
+    assert thresh_img.shape[0] == example_file.shape[0]
+    assert thresh_img.shape[1] == example_file.shape[1]
+    # error due to unaccounted for case
+    with pytest.raises(ValueError) as error:
+        ia.threshold_array(example_file, 3)
+    assert error.typename == "ValueError"
 
 
 def test_region_to_coords():
@@ -301,7 +304,7 @@ def test_region_to_coords():
 def test_isolate_masks_gfp():
     file_path = glob_fluorescent("test_single")[0]
     example_file = io.imread(file_path)
-    thresh_img = ia.threshold_gfp_v1(example_file)
+    thresh_img = ia.threshold_array(example_file, 2)
     tissue_mask, wound_mask, wound_region = ia.isolate_masks(thresh_img)
     assert np.max(tissue_mask) == 1
     assert np.min(tissue_mask) == 0
@@ -317,7 +320,7 @@ def test_isolate_masks_gfp():
 def test_isolate_masks_brightfield():
     file_path = glob_brightfield("test_single")[0]
     example_file = io.imread(file_path)
-    thresh_img = ia.threshold_brightfield_v1(example_file)
+    thresh_img = ia.threshold_array(example_file, 1)
     tissue_mask, wound_mask, wound_region = ia.isolate_masks(thresh_img)
     assert np.max(tissue_mask) == 1
     assert np.min(tissue_mask) == 0
@@ -352,7 +355,7 @@ def test_show_and_save_image():
 def test_show_and_save_image_mask():
     file_path = glob_brightfield("test_single")[0]
     file = ia.read_tiff(file_path)
-    file_thresh = ia.threshold_brightfield_v1(file)
+    file_thresh = ia.threshold_array(file, 1)
     tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = output_file("test_single", "test_brightfield_tissue_mask.png")
     ia.show_and_save_image(tissue_mask, save_path)
@@ -362,7 +365,7 @@ def test_show_and_save_image_mask():
     assert save_path.is_file()
     file_path = glob_fluorescent("test_single")[0]
     file = ia.read_tiff(file_path)
-    file_thresh = ia.threshold_gfp_v1(file)
+    file_thresh = ia.threshold_array(file, 2)
     tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = output_file("test_single", "test_gfp_tissue_mask.png")
     ia.show_and_save_image(tissue_mask, save_path)
@@ -375,7 +378,7 @@ def test_show_and_save_image_mask():
 def test_show_and_save_contour():
     file_path = glob_brightfield("test_single")[0]
     file = ia.read_tiff(file_path)
-    file_thresh = ia.threshold_brightfield_v1(file)
+    file_thresh = ia.threshold_array(file, 1)
     wound_mask = ia.isolate_masks(file_thresh)[1]
     contour = ia.mask_to_contour(wound_mask)
     save_path = output_file("test_single", "test_brightfield_wound_contour.png")
@@ -390,7 +393,7 @@ def test_save_numpy():
     save_path = data_path.joinpath("test_brightfield_save_no_title.npy")
     ia.save_numpy(file, save_path)
     assert save_path.is_file()
-    file_thresh = ia.threshold_brightfield_v1(file)
+    file_thresh = ia.threshold_array(file, 1)
     tissue_mask, wound_mask, wound_region = ia.isolate_masks(file_thresh)
     save_path = data_path.joinpath("test_brightfield_tissue_mask.npy")
     ia.save_numpy(tissue_mask, save_path)
@@ -401,16 +404,16 @@ def test_save_numpy():
     assert save_path.is_file()
 
 
-def test_save_yaml():
-    rad_1 = 5
-    disk_1 = morphology.disk(rad_1, dtype=bool)
-    region_props = ia.get_region_props(disk_1)
-    region = region_props[0]
-    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = ia.extract_region_props(region)
-    data_path = files_path()
-    file_path = data_path.joinpath("test_save.yaml")
-    ia.save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, file_path)
-    assert file_path.is_file()
+# def test_save_yaml():
+#     rad_1 = 5
+#     disk_1 = morphology.disk(rad_1, dtype=bool)
+#     region_props = ia.get_region_props(disk_1)
+#     region = region_props[0]
+#     area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = ia.extract_region_props(region)
+#     data_path = files_path()
+#     file_path = data_path.joinpath("test_save.yaml")
+#     ia.save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, file_path)
+#     assert file_path.is_file()
 
 
 def test_yml_to_dict():
@@ -421,7 +424,7 @@ def test_yml_to_dict():
     assert db["seg_bf_version"] == 1
     assert db["seg_bf_visualize"] is False
     assert db["segment_fluorescent"] is True
-    assert db["seg_fl_verison"] == 1
+    assert db["seg_fl_version"] == 1
     assert db["seg_fl_visualize"] is False
     assert db["track_brightfield"] is False
     assert db["track_bf_version"] == 1
@@ -438,7 +441,7 @@ def test_input_info_to_input_dict():
     assert db["seg_bf_version"] == 1
     assert db["seg_bf_visualize"] is False
     assert db["segment_fluorescent"] is True
-    assert db["seg_fl_verison"] == 1
+    assert db["seg_fl_version"] == 1
     assert db["seg_fl_visualize"] is False
     assert db["track_brightfield"] is False
     assert db["track_bf_version"] == 1
@@ -546,7 +549,7 @@ def test_input_info_to_dicts():
     assert db["seg_bf_version"] == 1
     assert db["seg_bf_visualize"] is False
     assert db["segment_fluorescent"] is True
-    assert db["seg_fl_verison"] == 1
+    assert db["seg_fl_version"] == 1
     assert db["seg_fl_visualize"] is False
     assert db["track_brightfield"] is False
     assert db["track_bf_version"] == 1
@@ -565,33 +568,130 @@ def test_input_info_to_dicts():
     assert output_path_dict["bf_track_with_fl_seg_visualize_path"] is None
 
 
-# def test_analyze_image_bf():
-#     img_path = glob_brightfield("test_single")[0]
-#     is_brightfield = True
-#     tissue_mask_path = output_file("test_single", "test_brightfield_tissue_mask.npy")
-#     wound_mask_path = output_file("test_single", "test_brightfield_wound_mask.npy")
-#     contour_path = output_file("test_single", "test_brightfield_contour.npy")
-#     yaml_path = output_file("test_single", "test_brightfield_values.yaml")
-#     vis_path = output_file("test_single", "test_brightfield_visualize.png")
-#     ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
-#     assert tissue_mask_path.is_file()
-#     assert wound_mask_path.is_file()
-#     assert contour_path.is_file()
-#     assert yaml_path.is_file()
-#     assert vis_path.is_file()
+def test_select_threshold_function():
+    folder_path = example_path("test_single")
+    input_dict = ia.input_info_to_input_dict(folder_path)
+    is_brightfield = True
+    assert ia.select_threshold_function(input_dict, is_brightfield) == 1
+    is_brightfield = False
+    assert ia.select_threshold_function(input_dict, is_brightfield) == 2
+
+    input_dict["seg_bf_version"] = 2
+    is_brightfield = True
+    with pytest.raises(ValueError) as error:
+        ia.select_threshold_function(input_dict, is_brightfield)
+    assert error.typename == "ValueError"
+
+    input_dict["seg_fl_version"] = 2
+    is_brightfield = False
+    with pytest.raises(ValueError) as error:
+        ia.select_threshold_function(input_dict, is_brightfield)
+    assert error.typename == "ValueError"
 
 
-# def test_analyze_image_gfp():
-#     img_path = glob_fluorescent("test_single")[0]
-#     is_brightfield = False
-#     tissue_mask_path = output_file("test_single", "test_fluorescent_tissue_mask.npy")
-#     wound_mask_path = output_file("test_single", "test_fluorescent_wound_mask.npy")
-#     contour_path = output_file("test_single", "test_fluorescent_contour.npy")
-#     yaml_path = output_file("test_single", "test_fluorescent_values.yaml")
-#     vis_path = output_file("test_single", "test_fluorescent_visualize.png")
-#     ia.analyze_image(img_path, is_brightfield, tissue_mask_path, wound_mask_path, contour_path, yaml_path, vis_path)
-#     assert tissue_mask_path.is_file()
-#     assert wound_mask_path.is_file()
-#     assert contour_path.is_file()
-#     assert yaml_path.is_file()
-#     assert vis_path.is_file()
+def test_read_all_tiff():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    folder_path = path_dict["brightfield_images_path"]
+    tiff_list = ia.read_all_tiff(folder_path)
+    assert len(tiff_list) == 5
+    assert tiff_list[0].shape == (512, 512)
+
+
+def test_save_all_numpy():
+    folder_path = example_path("test_io")
+    file_name = "test_save_numpy"
+    array_list = []
+    for kk in range(0, 3):
+        array_list.append((np.random.random((5, 5))))
+    file_name_list = ia.save_all_numpy(folder_path, file_name, array_list)
+    for file_name in file_name_list:
+        assert file_name.is_file()
+
+
+def test_save_list():
+    folder_path = example_path("test_io")
+    file_name = "test_save_list"
+    value_list = [1, 2, 3, 4, 5]
+    saved_name = ia.save_list(folder_path, file_name, value_list)
+    assert saved_name.is_file()
+
+
+def test_thresh_all():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    folder_path = path_dict["brightfield_images_path"]
+    tiff_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = 1
+    thresholded_list = ia.threshold_all(tiff_list, threshold_function_idx)
+    assert len(thresholded_list) == 5
+    for img in thresholded_list:
+        assert np.max(img) == 1
+        assert np.min(img) == 0
+
+
+def test_mask_all():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    folder_path = path_dict["brightfield_images_path"]
+    tiff_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = 1
+    thresholded_list = ia.threshold_all(tiff_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = ia.mask_all(thresholded_list)
+    assert len(tissue_mask_list) == 5
+    assert len(wound_mask_list) == 5
+    assert len(wound_region_list) == 5
+    for img in tissue_mask_list:
+        assert np.max(img) == 1
+        assert np.min(img) == 0
+    for img in wound_mask_list:
+        assert np.max(img) == 1
+        assert np.min(img) == 0
+
+
+def test_contour_all_and_parameters_all():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    folder_path = path_dict["brightfield_images_path"]
+    tiff_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = 1
+    thresholded_list = ia.threshold_all(tiff_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = ia.mask_all(thresholded_list)
+    contour_list = ia.contour_all(wound_mask_list)
+    area_list, axis_major_length_list, axis_minor_length_list = ia.parameters_all(wound_region_list)
+    assert len(tissue_mask_list) == 5
+    assert len(contour_list) == 5
+    assert len(wound_mask_list) == 5
+    assert len(area_list) == 5
+    assert len(axis_major_length_list) == 5
+    assert len(axis_minor_length_list) == 5
+    assert np.max(area_list) < 512 * 512
+    assert np.min(area_list) >= 0
+    assert np.max(axis_major_length_list) < 512
+    assert np.min(axis_major_length_list) >= 0
+    assert np.max(axis_minor_length_list) < 512
+    assert np.min(axis_minor_length_list) >= 0
+    for kk in range(0, 5):
+        assert axis_major_length_list[kk] >= axis_minor_length_list[kk]
+
+
+def test_run_segment():
+    for name in ["test_single", "test_mini_movie"]:
+        for kind in ["brightfield", "fluorescent"]:
+            folder_path = example_path(name)
+            path_dict = ia.input_info_to_input_paths(folder_path)
+            input_path = path_dict[kind + "_images_path"]
+            input_dict = ia.input_info_to_input_dict(folder_path)
+            path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+            output_path = path_dict["segment_" + kind + "_path"]
+            threshold_function_idx = 1
+            wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path = ia.run_segment(input_path, output_path, threshold_function_idx)
+            for wn in wound_name_list:
+                assert wn.is_file()
+            for tn in tissue_name_list:
+                assert tn.is_file()
+            for cn in contour_name_list:
+                assert cn.is_file()
+            assert area_path.is_file()
+            assert ax_maj_path.is_file()
+            assert ax_min_path.is_file()

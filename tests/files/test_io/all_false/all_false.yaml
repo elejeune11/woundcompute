@@ -4,7 +4,7 @@ segment_brightfield: False
 seg_bf_version: 1
 seg_bf_visualize: False
 segment_fluorescent: False
-seg_fl_verison: 1
+seg_fl_version: 1
 seg_fl_visualize: False
 track_brightfield: False
 track_bf_version: 1
