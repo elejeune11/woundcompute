@@ -748,6 +748,7 @@ def test_numpy_to_list():
 
 
 def test_run_all():
+    # still plan to run a few more examples here
     folder_path = example_path("test_mini_movie")
     time_all, action_all = ia.run_all(folder_path)
     assert len(time_all) == 7
