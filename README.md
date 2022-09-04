@@ -93,7 +93,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 This GitHub repository contains a folder called ``tutorials`` that contains an example dataset and python script for running the code.
 
-### Preparing data for analysis
+### Preparing data for analysis <a name="data_prep"></a>
 The input dataset for analysis will have this folder structure:
 ```bash
 |___ Example_folder
@@ -129,6 +129,24 @@ Type "help", "copyright", "credits" or "license" for more information.
 4. If it is neccessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
 
 ### Preparing an input file<a name="input"></a>
+
+The input file must be stored in the same folder as the data (see [schematic](#data_prep)). The input is a ``.yaml`` or ``.yml`` file that can be created, opened, and edited in any simple text editor (e.g., [TextEdit](https://support.apple.com/guide/textedit/welcome/mac), [BBEdit](https://www.barebones.com/products/bbedit/), [Sublime Text](https://www.sublimetext.com/)). Here is an example input file ``test_movie.yaml``:
+```bash
+# User input for running the test_movie example
+version: 1.0 # do not modify
+segment_brightfield: True
+seg_bf_version: 1 # do not modify
+seg_bf_visualize: True
+segment_fluorescent: True
+seg_fl_version: 1 # do not modify
+seg_fl_visualize: True
+track_brightfield: False # do not modify
+track_bf_version: 1 # do not modify
+track_bf_visualize: False # do not modify
+bf_seg_with_fl_seg_visualize: True
+bf_track_with_fl_seg_visualize: False # do not modify
+```
+Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent`` and ``seg_fl_visualize`` to ``False``.
 
 ### Running the code
 
