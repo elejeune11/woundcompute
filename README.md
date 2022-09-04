@@ -159,7 +159,7 @@ And it will automatically run the provided example. You can use the ``run_code_t
 
 ### Understanding the output files
 
-For the tutorial example, outputs are summarized as follows. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character).
+For the tutorial example, outputs are summarized as follows. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character) and corresponds to frame number.
 
 Outputs from brightfield segmentation:
 * ``files/test_movie/segment_brightfield/contour_coords_*.npy``
