@@ -159,7 +159,7 @@ And it will automatically run the provided example. You can use the ``run_code_t
 
 ### Understanding the output files
 
-For the tutorial example, outputs are summarized as follows.
+For the tutorial example, outputs are summarized as follows. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character).
 
 Outputs from brightfield segmentation:
 * ``files/test_movie/segment_brightfield/contour_coords_*.npy``
@@ -189,6 +189,33 @@ Output from brightfield segmentation with fluorescent segmentation visualization
 * ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl_*.png``
 * ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl.gif``
 
+Notably, these outputs contain the tissue and wound mask for each segmented image:
+
+<p align = "center">
+<img alt="brightfield image" src="tutorials/figs/brightfield_image.png" width="30%" />
+<img alt="tissue mask" src="tutorials/figs/brightfield_tissue_mask.png" width="30%" />
+<img alt="wound mask" src="tutorials/figs/brightfield_wound_mask.png" width="30%" />
+</p>
+
+<p align = "center">
+<img alt="fluorescent image" src="tutorials/figs/fluorescent_image.png" width="30%" />
+<img alt="tissue mask" src="tutorials/figs/fluorescent_tissue_mask.png" width="30%" />
+<img alt="wound mask" src="tutorials/figs/fluorescent_wound_mask.png" width="30%" />
+</p>
+
+And, they contain wound area, wound major axis length, and wound minor axis length with respect to frame number for the whole movie:
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/wound_area.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/wound_major_axis.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/wound_minor_axis.png" width="32%" />
+</p>
+
+Finally, they contain the wound contours, and wound contour visualizations (red solid line is the brightfield contour, blue dashed line is the fluorescent contour.)
+
+<p align = "center">
+<img alt="contour visualization" src="tutorials/figs/bf_with_fl.gif" width="80%" />
+</p>
 
 ## To-Do List <a name="todo"></a>
 - [ ] Include previous work on tissue deformation tracking in this repository
