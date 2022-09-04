@@ -75,7 +75,7 @@ Note that once you have created this virtual environment you can ``activate`` an
 python -m pip install -e .
 ```
 4. If you would like to see what packages this has installed, you can type ``pip list``
-5. You can test that the code is working with pytest:
+5. You can test that the code is working with pytest (all tests should pass):
 ```bash
 pytest -v --cov=woundcompute  --cov-report term-missing
 ```
@@ -89,12 +89,46 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> 
 ```
 
-
 ## Tutorial <a name="tutorial"></a>
 
-### Preparing data for analysis
+This GitHub repository contains a folder called ``tutorials`` that contains an example dataset and python script for running the code.
 
-### Preparing an input file
+### Preparing data for analysis
+The input dataset for analysis will have this folder structure:
+```bash
+|___ Example_folder
+|        |___ input_file.yaml
+|        |___ brightfield_images
+|                |___"*.TIF"
+|        |___ fluorescent_images
+|                |___"*.TIF"
+```
+The data will be contained in the ``brightfield_image`` and ``fluorescent_images`` folders. Critically:
+1. The files must have a ``.TIF`` extension.
+2. The files can have any name, but in order for the code to work properly they must be *in order*. For reference, we use ``sort`` to order file names:
+```bash
+(wound-compute-env) eml-macbook-pro:tutorials emma$ python
+Python 3.9.13 | packaged by conda-forge | (main, May 27 2022, 17:01:00) 
+[Clang 13.0.1 ] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> bad_example = ["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15"]
+>>> bad_example.sort()
+>>> print(bad_example)
+['1', '10', '11', '12', '13', '14', '15', '2', '3', '4', '5', '6', '7', '8', '9']
+>>>
+>>> good_example = ["01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"]
+>>> good_example.sort()
+>>> print(good_example)
+['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15']
+>>> another_good_example = ["test_001","test_002","test_003","test_004","test_005","test_006","test_007","test_008","test_009","test_010","test_011","test_012","test_013","test_014","test_015"]
+>>> another_good_example.sort()
+>>> print(another_good_example)
+['test_001', 'test_002', 'test_003', 'test_004', 'test_005', 'test_006', 'test_007', 'test_008', 'test_009', 'test_010', 'test_011', 'test_012', 'test_013', 'test_014', 'test_015']
+```
+3. It is OK for the example to only contain one image type and corresponding folder (e.g., if only brightfield images were recorded, the example will be missing the ``fluorescent_images`` folder). This information will be reflected in the [input file](#input).
+4. If it is neccessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
+
+### Preparing an input file<a name="input"></a>
 
 ### Running the code
 
