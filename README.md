@@ -10,9 +10,9 @@
 ## Table of Contents
 * [Project Summary](#summary)
 * [Project Roadmap](#roadmap)
-* [Current Functionality](#functionality)
 * [Installation Instructions](#install)
 * [Tutorial](#tutorial)
+* [Current To Do List](#todo)
 * [References to Related Work](#references)
 * [Contact Information](#contact)
 
@@ -37,9 +37,6 @@ We plan to develop and disseminate an "all-purpose" software for data curation a
 
 At present (**September 2022**) we are in the process of testing and validating our software on larger datasets. Specifically, we are (1) identifying scenarios where our approach fails and creating functions to accomodate them, and (2) comparing software results to previous manual approaches for extracting quantitative information. We will continue to update this repository as the project progresses.
 
-## Current Functionality <a name="functionality"></a>
-
-
 ## Installation Instructions <a name="install"></a>
 
 ### Get a copy of the wound compute repository on your local machine
@@ -62,6 +59,15 @@ At present (**September 2022**) we are in the process of testing and validating 
 ### Running the code
 
 ### Understanding the output files
+
+## Current To Do List <a name="todo"></a>
+* Include previous work on tissue deformation tracking in this repository
+* Identify where segmentation fails and add additional functions to accomodate these scenarios 
+* Validate wound segmentation vs. hand labeled data
+* Compare our procedural wound segmentation to machine learning approaches to wound segmentation
+* Add additional quantities of interest to the automatically computed outputs
+* Work on input/output data formatting to better fit experimental needs
+* ?
 
 ## References to Related Work <a name="references"></a>
 * Das, S. L., Bose, P., Lejeune, E., Reich, D. H., Chen, C., & Eyckmans, J. (2021). Extracellular matrix alignment directs provisional matrix assembly and three dimensional fibrous tissue closure. Tissue Engineering Part A, 27(23-24), 1447-1457. https://doi.org/10.1089/ten.tea.2020.0332
