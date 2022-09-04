@@ -15,7 +15,7 @@
 * [To-Do List](#todo)
 * [References to Related Work](#references)
 * [Contact Information](#contact)
-
+* [Acknowledgements](#acknowledge)
 
 ## Project Summary <a name="summary"></a>
 
@@ -233,8 +233,12 @@ Finally, they contain the wound contours, and wound contour visualizations (red 
 * Tefft, J. B., Chen, C. S., & Eyckmans, J. (2021). Reconstituting the dynamics of endothelial cells and fibroblasts in wound closure. APL bioengineering, 5(1), 016102. https://doi.org/10.1063/5.0028651
 
 
-## Contanct Information <a name="contact"></a>
+## Contact Information <a name="contact"></a>
 
 At present, this repository is public to facilitate collaboration between the Lejeune + Eyckmans research groups. However, we welcome feedback and interest from others.
 
 For information about this software, please get in touch with [Emma Lejeune](https://www.bu.edu/eng/profile/emma-lejeune/). For information about this experimental system, please get in touch with [Jeroen Eyckmans](https://www.bu.edu/eng/profile/jeroen-eyckmans-phd/).
+
+## Acknowledgements <a name="acknowledge"></a>
+
+Big thank you to Chad Hovey for providing template scripts for I/O and testing via the [Sandia Injury Biomechanics Laboratory](https://github.com/sandialabs/sibl) repository.
