@@ -7,7 +7,7 @@
 [![tests](https://github.com/elejeune11/woundcompute/workflows/tests/badge.svg)](https://github.com/elejeune11/woundcompute/actions) [![codecov](https://codecov.io/gh/elejeune11/woundcompute/branch/main/graph/badge.svg?token=EVCCPWCUE7)](https://codecov.io/gh/elejeune11/woundcompute)
 
 
-### Table of Contents
+## Table of Contents
 * [Project Summary](#summary)
 * [Project Roadmap](#roadmap)
 * [Current Functionality](#functionality)
@@ -17,7 +17,7 @@
 * [Contact Information](#contact)
 
 
-### Project Summary <a name="summary"></a>
+## Project Summary <a name="summary"></a>
 
 This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time.
 
@@ -29,7 +29,7 @@ This software is designed to analyze experimental data from micro-tissue wound e
 
 We are also adding additional funcitonality for tracking tissue deformation between frames -- stay tuned!
 
-### Project Roadmap <a name="roadmap"></a>
+## Project Roadmap <a name="roadmap"></a>
 
 We plan to develop and disseminate an "all-purpose" software for data curation and analysis from micro-tissue wound experiments. The roadmap for this collaborative endeavor is as follows:
 
@@ -37,40 +37,40 @@ We plan to develop and disseminate an "all-purpose" software for data curation a
 
 At present (**September 2022**) we are in the process of testing and validating our software on larger datasets. Specifically, we are (1) identifying scenarios where our approach fails and creating functions to accomodate them, and (2) comparing software results to previous manual approaches for extracting quantitative information. We will continue to update this repository as the project progresses.
 
-### Current Functionality <a name="functionality"></a>
+## Current Functionality <a name="functionality"></a>
 
 
-### Installation Instructions <a name="install"></a>
+## Installation Instructions <a name="install"></a>
 
-#### Get a copy of the wound compute repository on your local machine
+### Get a copy of the wound compute repository on your local machine
 
-#### Create and activate a conda virtual environment
-
-
-#### Install wound compute
+### Create and activate a conda virtual environment
 
 
-#### Check installation
+### Install wound compute
 
 
-### Tutorial <a name="tutorial"></a>
+### Check installation
 
-#### Preparing data for analysis
 
-#### Preparing an input file
+## Tutorial <a name="tutorial"></a>
 
-#### Running the code
+### Preparing data for analysis
 
-#### Understanding the output files
+### Preparing an input file
 
-### References to Related Work <a name="references"></a>
+### Running the code
+
+### Understanding the output files
+
+## References to Related Work <a name="references"></a>
 * Das, S. L., Bose, P., Lejeune, E., Reich, D. H., Chen, C., & Eyckmans, J. (2021). Extracellular matrix alignment directs provisional matrix assembly and three dimensional fibrous tissue closure. Tissue Engineering Part A, 27(23-24), 1447-1457. https://doi.org/10.1089/ten.tea.2020.0332
 * Mailand, E., Li, B., Eyckmans, J., Bouklas, N., & Sakar, M. S. (2019). Surface and bulk stresses drive morphological changes in fibrous microtissues. Biophysical journal, 117(5), 975-986. https://doi.org/10.1016/j.bpj.2019.07.041
 * Sakar, M. S., Eyckmans, J., Pieters, R., Eberli, D., Nelson, B. J., & Chen, C. S. (2016). Cellular forces and matrix assembly coordinate fibrous tissue repair. Nature communications, 7(1), 1-8. https://doi.org/10.1038/ncomms11036 -- source of schematic diagram in the [Project Summary](#summary).
 * Tefft, J. B., Chen, C. S., & Eyckmans, J. (2021). Reconstituting the dynamics of endothelial cells and fibroblasts in wound closure. APL bioengineering, 5(1), 016102. https://doi.org/10.1063/5.0028651
 
 
-### Contanct Information <a name="contact"></a>
+## Contanct Information <a name="contact"></a>
 
 At present, this repository is public to facilitate collaboration between the Lejeune + Eyckmans research groups. However, we welcome feedback and interest from others.
 
