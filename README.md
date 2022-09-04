@@ -12,7 +12,7 @@
 * [Project Roadmap](#roadmap)
 * [Installation Instructions](#install)
 * [Tutorial](#tutorial)
-* [Current To Do List](#todo)
+* [To-Do List](#todo)
 * [References to Related Work](#references)
 * [Contact Information](#contact)
 
@@ -46,15 +46,48 @@ The best way to do this is to create a GitHub account and ``clone`` the reposito
 ### Create and activate a conda virtual environment
 
 1. Install [Anaconda](https://docs.anaconda.com/anaconda/install/) on your local machine.
-2. Create a virtual environment with conda:
+2. Open a ``Terminal`` session (or equivalent) -- note that Mac computers come with ``Terminal`` pre-installed (type ``⌘-space`` and then search for ``Terminal``).
+3. Type in the terminal to create a virtual environment with conda:
+```bash
+conda create --name wound-compute-env python=3.9.13
+```
+4. Type in the terminal to activate your virtual environment:
+```bash
+conda activate wound-compute-env
+```
+5. Check to make sure that the correct version of python is running (should be ``3.9.13``)
+```bash
+python --version
+```
+6. Update some base modules (just in case)
+```bash
+python -m pip install --upgrade pip setuptools wheel
+```
 
-
-Note that once you have created this virtual environment you can ``activate`` and ``deactivate`` it in the future -- it is not necessary to create a new virtual environment each time you want to run this code (see also: [conda cheat sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf)).
+Note that once you have created this virtual environment you can ``activate`` and ``deactivate`` it in the future -- it is not necessary to create a new virtual environment each time you want to run this code, you can simply type ``conda activate wound-compute-env`` and then pick up where you left off (see also: [conda cheat sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf)).
 
 ### Install wound compute
 
-
-### Check installation
+1. Use a ``Terminal`` session to navigate to the ``woundcompute-main`` folder. The command ``cd`` will allow you to do this (see: [terminal cheat sheet](https://terminalcheatsheet.com/))
+2. Type the command ``ls`` and make sure that the file ``pyproject.toml`` is in the current directory.
+3. Now, create an editable install of wound compute:
+```bash
+python -m pip install -e .
+```
+4. If you would like to see what packages this has installed, you can type ``pip list``
+5. You can test that the code is working with pytest:
+```bash
+pytest -v --cov=woundcompute  --cov-report term-missing
+```
+6. To run the code from the terminal, simply start python (type ``python``) and then type ``from woundcompute import image_analysis as ia``. For example:
+```bash
+(wound-compute-env) eml-macbook-pro:woundcompute-main emma$ python
+Python 3.9.13 | packaged by conda-forge | (main, May 27 2022, 17:01:00) 
+[Clang 13.0.1 ] on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from woundcompute import image_analysis as ia
+>>> 
+```
 
 
 ## Tutorial <a name="tutorial"></a>
@@ -67,14 +100,14 @@ Note that once you have created this virtual environment you can ``activate`` an
 
 ### Understanding the output files
 
-## Current To Do List <a name="todo"></a>
+## To-Do List <a name="todo"></a>
 - [ ] Include previous work on tissue deformation tracking in this repository
 - [ ] Identify where segmentation fails and add additional functions to accomodate these scenarios 
 - [ ] Validate wound segmentation vs. hand labeled data
-* Compare our procedural wound segmentation to machine learning approaches to wound segmentation
-* Add additional quantities of interest to the automatically computed outputs
-* Work on input/output data formatting to better fit experimental needs
-* ?
+- [ ] Compare our procedural wound segmentation to machine learning approaches to wound segmentation
+- [ ] Add additional quantities of interest to the automatically computed outputs
+- [ ] Work on input/output data formatting to better fit experimental needs
+- [ ] ?
 
 ## References to Related Work <a name="references"></a>
 * Das, S. L., Bose, P., Lejeune, E., Reich, D. H., Chen, C., & Eyckmans, J. (2021). Extracellular matrix alignment directs provisional matrix assembly and three dimensional fibrous tissue closure. Tissue Engineering Part A, 27(23-24), 1447-1457. https://doi.org/10.1089/ten.tea.2020.0332
