@@ -695,3 +695,25 @@ def test_run_segment():
             assert area_path.is_file()
             assert ax_maj_path.is_file()
             assert ax_min_path.is_file()
+
+
+def test_save_all_img_with_contour_and_create_gif():
+    for kind in ["brightfield", "fluorescent"]:
+        folder_path = example_path("test_mini_movie")
+        path_dict = ia.input_info_to_input_paths(folder_path)
+        input_dict = ia.input_info_to_input_dict(folder_path)
+        input_path = path_dict[kind + "_images_path"]
+        tiff_list = ia.read_all_tiff(input_path)
+        path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+        output_path = path_dict["segment_" + kind + "_vis_path"]
+        file_name = kind + "_contour"
+        threshold_function_idx = 1
+        thresholded_list = ia.threshold_all(tiff_list, threshold_function_idx)
+        wound_mask_list = ia.mask_all(thresholded_list)[1]
+        contour_list = ia.contour_all(wound_mask_list)
+        file_path = ia.save_all_img_with_contour(output_path, file_name, tiff_list, contour_list)
+        assert len(file_path) == 5
+        for file in file_path:
+            assert file.is_file()
+        gif_path = ia.create_gif(output_path, file_name, file_path)
+        assert gif_path.is_file()

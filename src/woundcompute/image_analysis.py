@@ -1,4 +1,5 @@
 import glob
+import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -465,6 +466,29 @@ def save_all_numpy(folder_path: Path, file_name: str, array_list: List) -> None:
     return file_name_list
 
 
+def save_all_img_with_contour(folder_path: Path, file_name: str, img_list: List, contour_list: List) -> List:
+    "Given segmentation results. Plot and save image and contour."
+    file_name_list = []
+    for kk in range(0, len(img_list)):
+        img = img_list[kk]
+        cont = contour_list[kk]
+        save_path = folder_path.joinpath(file_name + "_%05d.png" % (kk)).resolve()
+        title = "frame %05d" % (kk)
+        show_and_save_contour(img, cont, save_path, title)
+        file_name_list.append(save_path)
+    return file_name_list
+
+
+def create_gif(folder_path: Path, file_name: str, file_list: List) -> Path:
+    """Given a list of files. Creates a gif."""
+    image_list = []
+    for file in file_list:
+        image_list.append(imageio.imread(file))
+    gif_name = folder_path.joinpath(file_name + '.gif')
+    imageio.mimsave(str(gif_name), image_list)
+    return gif_name
+
+
 def save_list(folder_path: Path, file_name: str, value_list: List):
     """Given a folder path, file name, and array list. Will save the array as a numpy array"""
     array = np.asarray(value_list)
@@ -538,6 +562,7 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     ax_maj_path = save_list(output_path, "wound_major_axis_length_vs_frame", axis_major_length_list)
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path
+
 
 # def run_segment_visualize():
 # def run_bf_seg_vs_fl_seg_visualize():
