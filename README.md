@@ -146,9 +146,15 @@ track_bf_visualize: False # do not modify
 bf_seg_with_fl_seg_visualize: True
 bf_track_with_fl_seg_visualize: False # do not modify
 ```
-Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent`` and ``seg_fl_visualize`` to ``False``.
+Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``.
 
 ### Running the code
+
+Once all of the previous steps are completed, running the code is actually quite straightforward. To run the tutorial example, navigate terminal so that your current directory is in the ``tutorials`` folder. To run the code on the provided example, type:
+```bash
+python run_code_tutorial.py files/test_movie
+```
+And it will automatically run the provided example. You can use the ``run_code_tutorial.py`` to run your own code, you just need to specify a relative path between your current working directory (i.e., the directory that your ``Terminal`` is in) and the data that you want to analyze.
 
 ### Understanding the output files
 
