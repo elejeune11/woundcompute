@@ -41,8 +41,15 @@ At present (**September 2022**) we are in the process of testing and validating 
 
 ### Get a copy of the wound compute repository on your local machine
 
+The best way to do this is to create a GitHub account and ``clone`` the repository. However, you can also download the repository by clicking the green ``Code`` button and selecting ``Download ZIP``. Downloaded and unzip the ``woundcompute-main`` folder and place it in a convenient location on your computer.
+
 ### Create and activate a conda virtual environment
 
+1. Install [Anaconda](https://docs.anaconda.com/anaconda/install/) on your local machine.
+2. Create a virtual environment with conda:
+
+
+Note that once you have created this virtual environment you can ``activate`` and ``deactivate`` it in the future -- it is not necessary to create a new virtual environment each time you want to run this code (see also: [conda cheat sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf)).
 
 ### Install wound compute
 
@@ -61,9 +68,9 @@ At present (**September 2022**) we are in the process of testing and validating 
 ### Understanding the output files
 
 ## Current To Do List <a name="todo"></a>
-* Include previous work on tissue deformation tracking in this repository
-* Identify where segmentation fails and add additional functions to accomodate these scenarios 
-* Validate wound segmentation vs. hand labeled data
+- [ ] Include previous work on tissue deformation tracking in this repository
+- [ ] Identify where segmentation fails and add additional functions to accomodate these scenarios 
+- [ ] Validate wound segmentation vs. hand labeled data
 * Compare our procedural wound segmentation to machine learning approaches to wound segmentation
 * Add additional quantities of interest to the automatically computed outputs
 * Work on input/output data formatting to better fit experimental needs
