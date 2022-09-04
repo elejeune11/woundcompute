@@ -22,7 +22,7 @@
 This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time.
 
 <p align = "center">
-<img alt="schematic of experimental system" src="tutorials/figs/schematic.png" width="21%" />
+<img alt="schematic of experimental system" src="tutorials/figs/schematic.png" width="20%" />
 <img alt="brightfield with contour" src="tutorials/figs/brightfield_contour.gif" width="35%" />
 <img alt="fluorescent with contour" src="tutorials/figs/fluorescent_contour.gif" width="35%" />
 </p>
