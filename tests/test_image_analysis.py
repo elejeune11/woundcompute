@@ -1,3 +1,4 @@
+import copy
 import glob
 import numpy as np
 from pathlib import Path
@@ -386,6 +387,22 @@ def test_show_and_save_contour():
     assert save_path.is_file()
 
 
+def test_show_and_save_double_contour():
+    file_path = glob_brightfield("test_single")[0]
+    file = ia.read_tiff(file_path)
+    file_thresh = ia.threshold_array(file, 1)
+    wound_mask = ia.isolate_masks(file_thresh)[1]
+    contour_bf = ia.mask_to_contour(wound_mask)
+    file_path = glob_fluorescent("test_single")[0]
+    file = ia.read_tiff(file_path)
+    file_thresh = ia.threshold_array(file, 2)
+    wound_mask = ia.isolate_masks(file_thresh)[1]
+    contour_fl = ia.mask_to_contour(wound_mask)
+    save_path = output_file("test_single", "test_brightfield_and_fluorescent_wound_contour.png")
+    ia.show_and_save_double_contour(file, contour_bf, contour_fl, save_path)
+    assert save_path.is_file()
+
+
 def test_save_numpy():
     data_path = files_path()
     file_path = glob_brightfield("test_single")[0]
@@ -402,18 +419,6 @@ def test_save_numpy():
     save_path = data_path.joinpath("test_brightfield_tissue_contour.npy")
     ia.save_numpy(contour, save_path)
     assert save_path.is_file()
-
-
-# def test_save_yaml():
-#     rad_1 = 5
-#     disk_1 = morphology.disk(rad_1, dtype=bool)
-#     region_props = ia.get_region_props(disk_1)
-#     region = region_props[0]
-#     area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = ia.extract_region_props(region)
-#     data_path = files_path()
-#     file_path = data_path.joinpath("test_save.yaml")
-#     ia.save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, file_path)
-#     assert file_path.is_file()
 
 
 def test_yml_to_dict():
@@ -704,6 +709,8 @@ def test_save_all_img_with_contour_and_create_gif():
         input_dict = ia.input_info_to_input_dict(folder_path)
         input_path = path_dict[kind + "_images_path"]
         tiff_list = ia.read_all_tiff(input_path)
+        if kind == "brightfield":
+            img_list = copy.deepcopy(tiff_list)
         path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
         output_path = path_dict["segment_" + kind + "_vis_path"]
         file_name = kind + "_contour"
@@ -711,9 +718,21 @@ def test_save_all_img_with_contour_and_create_gif():
         thresholded_list = ia.threshold_all(tiff_list, threshold_function_idx)
         wound_mask_list = ia.mask_all(thresholded_list)[1]
         contour_list = ia.contour_all(wound_mask_list)
+        if kind == "brightfield":
+            contour_list_bf = copy.deepcopy(contour_list)
+        else:
+            contour_list_fl = copy.deepcopy(contour_list)
         file_path = ia.save_all_img_with_contour(output_path, file_name, tiff_list, contour_list)
         assert len(file_path) == 5
         for file in file_path:
             assert file.is_file()
         gif_path = ia.create_gif(output_path, file_name, file_path)
         assert gif_path.is_file()
+    output_path = path_dict["bf_seg_with_fl_seg_visualize_path"]
+    file_name = "bf_with_fl"
+    file_path = ia.save_all_img_with_double_contour(output_path, file_name, img_list, contour_list_bf, contour_list_fl)
+    assert len(file_path) == 5
+    for file in file_path:
+        assert file.is_file()
+    gif_path = ia.create_gif(output_path, file_name, file_path)
+    assert gif_path.is_file()

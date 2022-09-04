@@ -247,30 +247,29 @@ def show_and_save_contour(
     return
 
 
+def show_and_save_double_contour(
+    img_array: np.ndarray,
+    contour_bf: np.ndarray,
+    contour_fl: np.ndarray,
+    save_path: Path,
+    title: str = " "
+) -> None:
+    """Given an image, contour, and path location. Will plot and save."""
+    plt.figure()
+    plt.imshow(img_array, cmap=plt.cm.gray)
+    plt.plot(contour_bf[:, 1], contour_bf[:, 0], 'r', linewidth=2.0)
+    plt.plot(contour_fl[:, 1], contour_fl[:, 0], 'c:', linewidth=2.0)
+    plt.title(title)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    return
+
+
 def save_numpy(array: np.ndarray, save_path: Path) -> None:
     """Given a numpy array and path location. Will save as numpy array."""
     np.save(save_path, array)
     return
-
-
-# def save_yaml(
-#     area: Union[float, int],
-#     axis_major_length: Union[float, int],
-#     axis_minor_length: Union[float, int],
-#     centroid_row: Union[float, int],
-#     centroid_col: Union[float, int],
-#     yaml_path: Path
-# ) -> None:
-#     """Given wound properties and yaml path. Will save properties as a yaml file."""
-#     Dict = {"wound_area": area,
-#             "axis_major_length": axis_major_length,
-#             "axis_minor_length": axis_minor_length,
-#             "centroid_row": centroid_row,
-#             "centroid_col": centroid_col
-#             }
-#     with open(yaml_path, 'w') as outfile:
-#         yaml.dump(Dict, outfile, default_flow_style=False)
-#     return
 
 
 def _yml_to_dict(*, yml_path_file: Path) -> dict:
@@ -475,6 +474,26 @@ def save_all_img_with_contour(folder_path: Path, file_name: str, img_list: List,
         save_path = folder_path.joinpath(file_name + "_%05d.png" % (kk)).resolve()
         title = "frame %05d" % (kk)
         show_and_save_contour(img, cont, save_path, title)
+        file_name_list.append(save_path)
+    return file_name_list
+
+
+def save_all_img_with_double_contour(
+    folder_path: Path,
+    file_name: str,
+    img_list: List,
+    contour_list_bf: List,
+    contour_list_fl: List
+) -> List:
+    "Given segmentation results. Plot and save image and contour."
+    file_name_list = []
+    for kk in range(0, len(img_list)):
+        img = img_list[kk]
+        cont_bf = contour_list_bf[kk]
+        cont_fl = contour_list_fl[kk]
+        save_path = folder_path.joinpath(file_name + "_%05d.png" % (kk)).resolve()
+        title = "frame %05d" % (kk)
+        show_and_save_double_contour(img, cont_bf, cont_fl, save_path, title)
         file_name_list.append(save_path)
     return file_name_list
 
