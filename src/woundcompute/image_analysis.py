@@ -9,6 +9,7 @@ from skimage import io
 from skimage import measure
 from skimage.filters import threshold_otsu
 from skimage.measure import label, regionprops
+import time
 from typing import List, Union
 import yaml
 
@@ -227,6 +228,7 @@ def show_and_save_image(img_array: np.ndarray, save_path: Path, title: str = 'no
         plt.axis('off')
         plt.tight_layout()
         plt.savefig(save_path)
+        plt.close()
     return
 
 
@@ -244,6 +246,7 @@ def show_and_save_contour(
     plt.axis('off')
     plt.tight_layout()
     plt.savefig(save_path)
+    plt.close()
     return
 
 
@@ -263,6 +266,7 @@ def show_and_save_double_contour(
     plt.axis('off')
     plt.tight_layout()
     plt.savefig(save_path)
+    plt.close()
     return
 
 
@@ -580,41 +584,82 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     area_path = save_list(output_path, "wound_area_vs_frame", area_list)
     ax_maj_path = save_list(output_path, "wound_major_axis_length_vs_frame", axis_major_length_list)
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
-    return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path
+    return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, img_list, contour_list
 
 
-# def run_segment_visualize():
-# def run_bf_seg_vs_fl_seg_visualize():
-# def run_all():
-# def (input_path_dict: dict, output_path_dict: dict)
+def numpy_to_list(input_path: Path, file_name: str) -> List:
+    """Given an input directory and a file name. Import all np arrays and return as a list."""
+    converted_to_list = []
+    file_names = glob.glob(str(input_path) + '/' + file_name + '*.npy')
+    for file in file_names:
+        array = np.load(file)
+        converted_to_list.append(array)
+    return converted_to_list
 
-# def analyze_image(
-#     img_path: Path,
-#     is_brightfield: bool,
-#     tissue_mask_path: Path,
-#     wound_mask_path: Path,
-#     contour_path: Path,
-#     yaml_path: Path,
-#     vis_path: Path
-# ) -> None:
-#     """Given an image path. Will run all analysis."""
-#     file = read_tiff(img_path)
-#     if is_brightfield:
-#         file_thresh = threshold_brightfield_v1(file)
-#     else:
-#         file_thresh = threshold_gfp_v1(file)
-#     tissue_mask, wound_mask, wound_region = isolate_masks(file_thresh)
-#     contour = mask_to_contour(wound_mask)
-#     area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords = extract_region_props(wound_region)
-#     # save numpy arrays
-#     save_numpy(tissue_mask, tissue_mask_path)
-#     save_numpy(wound_mask, wound_mask_path)
-#     save_numpy(contour, contour_path)
-#     save_yaml(area, axis_major_length, axis_minor_length, centroid_row, centroid_col, yaml_path)
-#     # plot and save visualization
-#     show_and_save_contour(file, contour, vis_path)
-#     return
 
-# def read_tiff_stack(img_path: Path) -> np.ndarray:
+def run_seg_visualize(output_path: Path, img_list: List, contour_list: List, fname: str) -> tuple:
+    """Given input and output information. Run segmentation visualization."""
+    path_list = save_all_img_with_contour(output_path, fname, img_list, contour_list)
+    gif_path = create_gif(output_path, fname, path_list)
+    return (path_list, gif_path)
 
-# def analyze_multi_image()
+
+def run_bf_seg_vs_fl_seg_visualize(
+    output_path: Path,
+    img_list: List,
+    contour_list_bf: List,
+    contour_list_fl: List,
+) -> tuple:
+    """Given input and output information. Run seg comparison visualization."""
+    fname = "bf_with_fl"
+    path_list = save_all_img_with_double_contour(output_path, fname, img_list, contour_list_bf, contour_list_fl)
+    gif_path = create_gif(output_path, fname, path_list)
+    return (path_list, gif_path)
+
+
+def run_all(folder_path: Path) -> List:
+    """Given a folder path. Will read input, run code, generate all outputs."""
+    time_all = []
+    action_all = []
+    time_all.append(time.time())
+    action_all.append("start")
+    input_dict, input_path_dict, output_path_dict = input_info_to_dicts(folder_path)
+    time_all.append(time.time())
+    action_all.append("loaded input")
+    if input_dict["segment_brightfield"] is True:
+        input_path = input_path_dict["brightfield_images_path"]
+        output_path = output_path_dict["segment_brightfield_path"]
+        thresh_fcn = select_threshold_function(input_dict, True)
+        # throw errors here if input_path == None? (future) and/or output dir isn't created
+        _, _, _, _, _, _, img_list_bf, contour_list_bf = run_segment(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("segmented brightfield")
+    if input_dict["segment_fluorescent"] is True:
+        input_path = input_path_dict["fluorescent_images_path"]
+        output_path = output_path_dict["segment_fluorescent_path"]
+        thresh_fcn = select_threshold_function(input_dict, False)
+        # throw errors here if input_path == None? (future) and/or output dir isn't created
+        _, _, _, _, _, _, img_list_fl, contour_list_fl = run_segment(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("segmented fluorescent")
+    if input_dict["seg_bf_visualize"] is True:
+        output_path = output_path_dict["segment_brightfield_vis_path"]
+        fname = "brightfield_contour"
+        _ = run_seg_visualize(output_path, img_list_bf, contour_list_bf, fname)
+        # throw errors here if necessary segmentation data doesn't exist
+        time_all.append(time.time())
+        action_all.append("visualized brightfield")
+    if input_dict["seg_fl_visualize"] is True:
+        output_path = output_path_dict["segment_fluorescent_vis_path"]
+        fname = "fluorescent_contour"
+        _ = run_seg_visualize(output_path, img_list_fl, contour_list_fl, fname)
+        # throw errors here if necessary segmentation data doesn't exist
+        time_all.append(time.time())
+        action_all.append("visualized fluorescent")
+    if input_dict["bf_seg_with_fl_seg_visualize"] is True:
+        output_path = output_path_dict["bf_seg_with_fl_seg_visualize_path"]
+        _ = run_bf_seg_vs_fl_seg_visualize(output_path, img_list_bf, contour_list_bf, contour_list_fl)
+        # throw errors here if necessary segmentation data doesn't exist
+        time_all.append(time.time())
+        action_all.append("visualized brightfield and fluorescent")
+    return time_all, action_all

@@ -690,7 +690,7 @@ def test_run_segment():
             path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
             output_path = path_dict["segment_" + kind + "_path"]
             threshold_function_idx = 1
-            wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path = ia.run_segment(input_path, output_path, threshold_function_idx)
+            wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx)
             for wn in wound_name_list:
                 assert wn.is_file()
             for tn in tissue_name_list:
@@ -736,3 +736,19 @@ def test_save_all_img_with_contour_and_create_gif():
         assert file.is_file()
     gif_path = ia.create_gif(output_path, file_name, file_path)
     assert gif_path.is_file()
+
+
+def test_numpy_to_list():
+    folder_path = example_path("test_io").joinpath("numpy_arrays").resolve()
+    file_name = "test_save_numpy"
+    file_list = ia.numpy_to_list(folder_path, file_name)
+    assert len(file_list) == 2
+    assert file_list[0].shape == (5, 5)
+    assert file_list[1].shape == (5, 5)
+
+
+def test_run_all():
+    folder_path = example_path("test_mini_movie")
+    time_all, action_all = ia.run_all(folder_path)
+    assert len(time_all) == 7
+    assert len(action_all) == 7
