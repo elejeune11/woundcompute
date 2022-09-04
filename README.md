@@ -126,7 +126,8 @@ Type "help", "copyright", "credits" or "license" for more information.
 ['test_001', 'test_002', 'test_003', 'test_004', 'test_005', 'test_006', 'test_007', 'test_008', 'test_009', 'test_010', 'test_011', 'test_012', 'test_013', 'test_014', 'test_015']
 ```
 3. It is OK for the example to only contain one image type and corresponding folder (e.g., if only brightfield images were recorded, the example will be missing the ``fluorescent_images`` folder). This information will be reflected in the [input file](#input).
-4. If it is neccessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
+4. In order to run automatic comparison between the brightfield and fluorescent examples, they must contain the same number of frames.
+5. If it is neccessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
 
 ### Preparing an input file<a name="input"></a>
 
@@ -157,6 +158,37 @@ python run_code_tutorial.py files/test_movie
 And it will automatically run the provided example. You can use the ``run_code_tutorial.py`` to run your own code, you just need to specify a relative path between your current working directory (i.e., the directory that your ``Terminal`` is in) and the data that you want to analyze.
 
 ### Understanding the output files
+
+For the tutorial example, outputs are summarized as follows.
+
+Outputs from brightfield segmentation:
+* ``files/test_movie/segment_brightfield/contour_coords_*.npy``
+* ``files/test_movie/segment_brightfield/tissue_mask_*.npy``
+* ``files/test_movie/segment_brightfield/wound_mask_*.npy``
+* ``files/test_movie/segment_brightfield/wound_area_vs_frame.txt``
+* ``files/test_movie/segment_brightfield/wound_major_axis_length_vs_frame.txt``
+* ``files/test_movie/segment_brightfield/wound_minor_axis_length_vs_frame.txt``
+
+Outputs from fluorescent segmentation:
+* ``files/test_movie/segment_fluorescent/contour_coords_*.npy``
+* ``files/test_movie/segment_fluorescent/tissue_mask_*.npy``
+* ``files/test_movie/segment_fluorescent/wound_mask_*.npy``
+* ``files/test_movie/segment_fluorescent/wound_area_vs_frame.txt``
+* ``files/test_movie/segment_fluorescent/wound_major_axis_length_vs_frame.txt``
+* ``files/test_movie/segment_fluorescent/wound_minor_axis_length_vs_frame.txt``
+
+Output from brightfield segmentation visualization:
+* ``files/test_movie/segment_brightfield/visualization/brightfield_contour_*.png``
+* ``files/test_movie/segment_brightfield/visualization/brightfield.gif``
+
+Output from fluorescent segmentation visualization:
+* ``files/test_movie/segment_fluorescent/visualization/fluorescent_contour_*.png``
+* ``files/test_movie/segment_fluorescent/visualization/fluorescent.gif``
+
+Output from brightfield segmentation with fluorescent segmentation visualization:
+* ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl_*.png``
+* ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl.gif``
+
 
 ## To-Do List <a name="todo"></a>
 - [ ] Include previous work on tissue deformation tracking in this repository
