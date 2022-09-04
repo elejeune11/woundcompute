@@ -10,8 +10,8 @@
 ### Table of Contents
 * [Project Summary](#summary)
 * [Project Roadmap](#roadmap)
-* [Installation Instructions](#install)
 * [Current Functionality](#functionality)
+* [Installation Instructions](#install)
 * [Tutorial](#tutorial)
 * [References to Related Work](#references)
 * [Contact Information](#contact)
@@ -37,14 +37,31 @@ We plan to develop and disseminate an "all-purpose" software for data curation a
 
 At present (**September 2022**) we are in the process of testing and validating our software on larger datasets. Specifically, we are (1) identifying scenarios where our approach fails and creating functions to accomodate them, and (2) comparing software results to previous manual approaches for extracting quantitative information. We will continue to update this repository as the project progresses.
 
+### Current Functionality <a name="functionality"></a>
+
+
 ### Installation Instructions <a name="install"></a>
 
+#### Get a copy of the wound compute repository on your local machine
 
-### Current Functionality <a name="functionality"></a>
+#### Create and activate a conda virtual environment
+
+
+#### Install wound compute
+
+
+#### Check installation
 
 
 ### Tutorial <a name="tutorial"></a>
 
+#### Preparing data for analysis
+
+#### Preparing an input file
+
+#### Running the code
+
+#### Understanding the output files
 
 ### References to Related Work <a name="references"></a>
 * Das, S. L., Bose, P., Lejeune, E., Reich, D. H., Chen, C., & Eyckmans, J. (2021). Extracellular matrix alignment directs provisional matrix assembly and three dimensional fibrous tissue closure. Tissue Engineering Part A, 27(23-24), 1447-1457. https://doi.org/10.1089/ten.tea.2020.0332
