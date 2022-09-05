@@ -86,7 +86,8 @@ Python 3.9.13 | packaged by conda-forge | (main, May 27 2022, 17:01:00)
 [Clang 13.0.1 ] on darwin
 Type "help", "copyright", "credits" or "license" for more information.
 >>> from woundcompute import image_analysis as ia
->>> 
+>>> ia.hello_wound_compute()
+>>> "Hello World!
 ```
 
 ## Tutorial <a name="tutorial"></a>

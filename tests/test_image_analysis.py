@@ -64,6 +64,11 @@ def output_file(example_name, file_name):
     return output_path
 
 
+def test_hello_world():
+    res = ia.hello_wound_compute()
+    assert res == "Hello World!"
+
+
 def test_apply_median_filter():
     array = np.ones((10, 10))
     array[1, 5] = 10

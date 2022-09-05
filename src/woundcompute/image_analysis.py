@@ -14,6 +14,11 @@ from typing import List, Union
 import yaml
 
 
+def hello_wound_compute() -> str:
+    "Given no input. Simple hello world as a test function."
+    return "Hello World!"
+
+
 def apply_median_filter(array: np.ndarray, filter_size: int) -> np.ndarray:
     """Given an image array. Will return the median filter applied by scipy"""
     filtered_array = ndimage.median_filter(array, filter_size)
@@ -272,7 +277,10 @@ def show_and_save_double_contour(
 
 def save_numpy(array: np.ndarray, save_path: Path) -> None:
     """Given a numpy array and path location. Will save as numpy array."""
-    np.save(save_path, array)
+    if np.all(array == (array > 0)):
+        np.save(save_path, array > 0)
+    else:
+        np.save(save_path, array)
     return
 
 
