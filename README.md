@@ -128,7 +128,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 ```
 3. It is OK for the example to only contain one image type and corresponding folder (e.g., if only brightfield images were recorded, the example will be missing the ``fluorescent_images`` folder). This information will be reflected in the [input file](#input).
 4. In order to run automatic comparison between the brightfield and fluorescent examples, they must contain the same number of frames.
-5. If it is neccessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
+5. If it is necessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
 
 ### Preparing an input file<a name="input"></a>
 
