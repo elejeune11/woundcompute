@@ -242,4 +242,4 @@ For information about this software, please get in touch with [Emma Lejeune](htt
 
 ## Acknowledgements <a name="acknowledge"></a>
 
-Big thank you to Chad Hovey for providing template scripts for I/O and testing via the [Sandia Injury Biomechanics Laboratory](https://github.com/sandialabs/sibl) repository.
+Big thank you to Chad Hovey for providing templates for I/O, testing, and installation via the [Sandia Injury Biomechanics Laboratory](https://github.com/sandialabs/sibl) repository.
