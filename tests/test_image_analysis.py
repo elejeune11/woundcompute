@@ -346,6 +346,15 @@ def test_read_tiff():
     assert np.all(known == found)
 
 
+def test_uint16_to_uint8():
+    array_8 = np.random.randint(0, 255, (5, 5)).astype(np.uint8)
+    array_8[0, 0] = 0
+    array_8[1, 0] = 255
+    array_16 = array_8.astype(np.uint16) * 100
+    found = ia.uint16_to_uint8(array_16)
+    assert np.all(array_8 == found)
+
+
 def test_show_and_save_image():
     file_path = glob_brightfield("test_single")[0]
     file = ia.read_tiff(file_path)
@@ -608,6 +617,16 @@ def test_read_all_tiff():
     assert tiff_list[0].shape == (512, 512)
 
 
+def test_uint16_to_uint8_all():
+    folder_path = example_path("test_mini_movie")
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    folder_path = path_dict["brightfield_images_path"]
+    tiff_list = ia.read_all_tiff(folder_path)
+    uint8_list = ia.uint16_to_uint8_all(tiff_list)
+    for img in uint8_list:
+        assert img.dtype is np.dtype('uint8')
+
+
 def test_save_all_numpy():
     folder_path = example_path("test_io")
     file_name = "test_save_numpy"
@@ -757,3 +776,5 @@ def test_run_all():
     time_all, action_all = ia.run_all(folder_path)
     assert len(time_all) == 7
     assert len(action_all) == 7
+
+

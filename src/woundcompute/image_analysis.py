@@ -5,6 +5,7 @@ import numpy as np
 import os
 from pathlib import Path
 from scipy import ndimage
+from skimage import exposure, img_as_ubyte
 from skimage import io
 from skimage import measure
 from skimage.filters import threshold_otsu
@@ -220,6 +221,12 @@ def read_tiff(img_path: Path) -> np.ndarray:
     """Given a path to a tiff. Will return an array."""
     img = io.imread(img_path)
     return img
+
+
+def uint16_to_uint8(img_16: np.ndarray) -> np.ndarray:
+    """Given a uint16 image. Will normalize + rescale and convert to uint8."""
+    img_8 = img_as_ubyte(exposure.rescale_intensity(img_16))
+    return img_8
 
 
 def show_and_save_image(img_array: np.ndarray, save_path: Path, title: str = 'no_title') -> None:
@@ -465,6 +472,15 @@ def read_all_tiff(folder_path: Path) -> List:
         array = read_tiff(path)
         tiff_list.append(array)
     return tiff_list
+
+
+def uint16_to_uint8_all(img_list: List) -> List:
+    """Given an image list of uint16. Will return the same list all as uint8."""
+    uint8_list = []
+    for img in img_list:
+        img8 = uint16_to_uint8(img)
+        uint8_list.append(img8)
+    return uint8_list
 
 
 def save_all_numpy(folder_path: Path, file_name: str, array_list: List) -> None:
