@@ -19,7 +19,7 @@
 
 ## Project Summary <a name="summary"></a>
 
-This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time.
+This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time. We can also automatically identify tissue properties such as tissue width, and tissue edge curvature, determine if the tissue is broken (i.e., detached from posts) or if the wound is closed.
 
 <p align = "center">
 <img alt="schematic of experimental system" src="tutorials/figs/schematic.png" width="20%" />
@@ -61,7 +61,7 @@ python --version
 ```
 6. Update some base modules (just in case)
 ```bash
-python -m pip install --upgrade pip setuptools wheel
+pip install --upgrade pip setuptools wheel
 ```
 
 Note that once you have created this virtual environment you can ``activate`` and ``deactivate`` it in the future -- it is not necessary to create a new virtual environment each time you want to run this code, you can simply type ``conda activate wound-compute-env`` and then pick up where you left off (see also: [conda cheat sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf)).
@@ -72,7 +72,7 @@ Note that once you have created this virtual environment you can ``activate`` an
 2. Type the command ``ls`` and make sure that the file ``pyproject.toml`` is in the current directory.
 3. Now, create an editable install of wound compute:
 ```bash
-python -m pip install -e .
+pip install -e .
 ```
 4. If you would like to see what packages this has installed, you can type ``pip list``
 5. You can test that the code is working with pytest (all tests should pass):
@@ -103,8 +103,10 @@ The input dataset for analysis will have this folder structure:
 |                |___"*.TIF"
 |        |___ fluorescent_images
 |                |___"*.TIF"
+|        |___ ph1_images
+|                |___"*.TIF"
 ```
-The data will be contained in the ``brightfield_image`` and ``fluorescent_images`` folders. Critically:
+The data will be contained in the ``brightfield_image``, ``fluorescent_images``, and ``ph1_images`` folders. Critically:
 1. The files must have a ``.TIF`` extension.
 2. The files can have any name, but in order for the code to work properly they must be *in order*. For reference, we use ``sort`` to order file names:
 ```bash
@@ -142,11 +144,19 @@ seg_bf_visualize: True
 segment_fluorescent: True
 seg_fl_version: 1 # do not modify
 seg_fl_visualize: True
+segment_ph1: False
+seg_ph1_version: 1
+seg_ph1_visualize: False
 track_brightfield: False # do not modify
 track_bf_version: 1 # do not modify
 track_bf_visualize: False # do not modify
+track_ph1: False # do not modify
+track_ph1_version: 1 # do not modify
+track_ph1_visualize: False # do not modify
 bf_seg_with_fl_seg_visualize: True
 bf_track_with_fl_seg_visualize: False # do not modify
+ph1_seg_with_fl_seg_visualize: False # do not modify
+ph1_track_with_fl_seg_visualize: False # do not modify
 ```
 Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``.
 
@@ -169,6 +179,9 @@ Outputs from brightfield segmentation:
 * ``files/test_movie/segment_brightfield/wound_area_vs_frame.txt``
 * ``files/test_movie/segment_brightfield/wound_major_axis_length_vs_frame.txt``
 * ``files/test_movie/segment_brightfield/wound_minor_axis_length_vs_frame.txt``
+* ``files/test_movie/segment_brightfield/is_broken_vs_frame.txt.txt``
+* ``files/test_movie/segment_brightfield/is_closed_vs_frame.txt``
+* ``files/test_movie/segment_brightfield/tissue_parameters_vs_frame.txt``
 
 Outputs from fluorescent segmentation:
 * ``files/test_movie/segment_fluorescent/contour_coords_*.npy``
@@ -177,6 +190,21 @@ Outputs from fluorescent segmentation:
 * ``files/test_movie/segment_fluorescent/wound_area_vs_frame.txt``
 * ``files/test_movie/segment_fluorescent/wound_major_axis_length_vs_frame.txt``
 * ``files/test_movie/segment_fluorescent/wound_minor_axis_length_vs_frame.txt``
+* ``files/test_movie/segment_fluorescent/is_broken_vs_frame.txt.txt``
+* ``files/test_movie/segment_fluorescent/is_closed_vs_frame.txt``
+* ``files/test_movie/segment_fluorescent/tissue_parameters_vs_frame.txt``
+
+The files ``is_broken_vs_frame.txt`` and ``is_closed_vs_frame.txt`` report ``0`` for ``False`` and ``1`` for ``True`` with one entry per frame. For example, if the tissue never breaks and never closes, both files will just contain a 1D array of zeros.
+
+The file ``tissue_parameters_vs_frame.txt`` has one row per frame, where the column entries (in order) are:
+* ``area``: area of the tissue mask
+* ``pt1_0``: ``0`` coordinate of the first point (``pt1``) that defines tissue width
+* ``pt1_1``: ``1`` coordinate of the first point that defines tissue width
+* ``pt2_0``: ``0`` coordinate of the second point (``pt2``) that defines tissue width
+* ``pt2_1``: ``1`` coordinate of the second point that defines tissue width
+* ``width``: width of the tissue mask (distance between ``pt1`` and ``pt2``)
+* ``kappa_1``: tissue curvature at ``pt1``
+* ``kappa_2``: tissue curvature at ``pt2``
 
 Output from brightfield segmentation visualization:
 * ``files/test_movie/segment_brightfield/visualization/brightfield_contour_*.png``
@@ -219,8 +247,10 @@ Finally, they contain the wound contours, and wound contour visualizations (red 
 </p>
 
 ## To-Do List <a name="todo"></a>
+- [ ] Add segmentation tools specific to Phase Contrast Microscopy
+- [ ] Include functions and I/O for a more zoomed out FOV
 - [ ] Include previous work on tissue deformation tracking in this repository
-- [ ] Identify where segmentation fails and add additional functions to accomodate these scenarios 
+- [ ] Identify where segmentation fails and add additional functions to accomodate these scenarios (starting point: Anish's dataset)
 - [ ] Validate wound segmentation vs. hand labeled data
 - [ ] Compare our procedural wound segmentation to machine learning approaches to wound segmentation
 - [ ] Add additional quantities of interest to the automatically computed outputs

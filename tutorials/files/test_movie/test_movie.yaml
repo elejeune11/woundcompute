@@ -1,13 +1,21 @@
-# User input for running the test_movie example
-version: 1.0 # do not modify
+# User input for running the test_single example
+version: 1.0
 segment_brightfield: True
-seg_bf_version: 1 # do not modify
+seg_bf_version: 1
 seg_bf_visualize: True
 segment_fluorescent: True
-seg_fl_version: 1 # do not modify
+seg_fl_version: 1
 seg_fl_visualize: True
-track_brightfield: False # do not modify
-track_bf_version: 1 # do not modify
-track_bf_visualize: False # do not modify
+segment_ph1: False
+seg_ph1_version: 1
+seg_ph1_visualize: False
+track_brightfield: False
+track_bf_version: 1
+track_bf_visualize: False
+track_ph1: False
+track_ph1_version: 1
+track_ph1_visualize: False
 bf_seg_with_fl_seg_visualize: True
-bf_track_with_fl_seg_visualize: False # do not modify
+bf_track_with_fl_seg_visualize: False
+ph1_seg_with_fl_seg_visualize: False
+ph1_track_with_fl_seg_visualize: False
