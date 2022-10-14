@@ -12,6 +12,7 @@
 * [Project Roadmap](#roadmap)
 * [Installation Instructions](#install)
 * [Tutorial](#tutorial)
+* [Validation](#validation)
 * [To-Do List](#todo)
 * [References to Related Work](#references)
 * [Contact Information](#contact)
@@ -27,7 +28,7 @@ This software is designed to analyze experimental data from micro-tissue wound e
 <img alt="fluorescent with contour" src="tutorials/figs/fluorescent_contour.gif" width="35%" />
 </p>
 
-We are also adding additional funcitonality for tracking tissue deformation between frames -- stay tuned!
+We are also adding additional funcitonality for tracking tissue deformation between frames -- these functions are included in the repository and testing is currently underway -- stay tuned!
 
 ## Project Roadmap <a name="roadmap"></a>
 
@@ -35,7 +36,7 @@ We plan to develop and disseminate an "all-purpose" software for data curation a
 
 `Preliminary Dataset + Software` $\mapsto$ `Larger Dataset + Software Testing and Validation` $\mapsto$ `Published Software Package` $\mapsto$ `Published Validation Examples and Tutorial` $\mapsto$ `Automated Analysis of High-Throughput Experiments`
 
-At present (**September 2022**) we are in the process of testing and validating our software on larger datasets. Specifically, we are (1) identifying scenarios where our approach fails and creating functions to accomodate them, and (2) comparing software results to previous manual approaches for extracting quantitative information. We will continue to update this repository as the project progresses.
+At present (**October 2022**) we are in the process of testing and validating our software on larger datasets. Specifically, we are (1) identifying scenarios where our approach fails and creating functions to accomodate them, and (2) comparing software results to previous manual approaches for extracting quantitative information. We will continue to update this repository as the project progresses.
 
 ## Installation Instructions <a name="install"></a>
 
@@ -128,7 +129,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> print(another_good_example)
 ['test_001', 'test_002', 'test_003', 'test_004', 'test_005', 'test_006', 'test_007', 'test_008', 'test_009', 'test_010', 'test_011', 'test_012', 'test_013', 'test_014', 'test_015']
 ```
-3. It is OK for the example to only contain one image type and corresponding folder (e.g., if only brightfield images were recorded, the example will be missing the ``fluorescent_images`` folder). This information will be reflected in the [input file](#input).
+3. It is OK for the example to only contain one image type and corresponding folder (e.g., if only brightfield images were recorded, the example will be missing the ``fluorescent_images`` folder and the ``ph1_images`` folder). This information will be reflected in the [input file](#input).
 4. In order to run automatic comparison between the brightfield and fluorescent examples, they must contain the same number of frames.
 5. If it is necessary to read other file types or formats (e.g., a single 3D TIFF array), that would be easy to implement -- we can add it to the to-do list. In addition, we can add a python function to rename files so that they are in order according to ```np.sort``` if that is necessary.
 
@@ -158,21 +159,27 @@ bf_track_with_fl_seg_visualize: False # do not modify
 ph1_seg_with_fl_seg_visualize: False # do not modify
 ph1_track_with_fl_seg_visualize: False # do not modify
 ```
-Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``.
+Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``. The ``.yaml`` file example shown above corresponds to the tutorial examples ``test_movie``.
 
 ### Running the code
 
-Once all of the previous steps are completed, running the code is actually quite straightforward. To run the tutorial example, navigate terminal so that your current directory is in the ``tutorials`` folder. To run the code on the provided example, type:
+Once all of the previous steps are completed, running the code is actually quite straightforward. To run the tutorial examples, navigate terminal so that your current directory is in the ``tutorials`` folder. To run the code on the provided single example, type:
 ```bash
 python run_code_tutorial.py files/test_movie
 ```
-And it will automatically run the provided example. You can use the ``run_code_tutorial.py`` to run your own code, you just need to specify a relative path between your current working directory (i.e., the directory that your ``Terminal`` is in) and the data that you want to analyze.
+And it will automatically run the example specified by the ``files/test_movie`` folder. You can use the ``run_code_tutorial.py`` to run your own code, you just need to specify a relative path between your current working directory (i.e., the directory that your ``Terminal`` is in) and the data that you want to analyze.
+
+We have also provided a tutorial example that shows one way to run a whole dataset. To run the code on all of the files specified in the ``files/sample_dataset`` folder, simply navigate to the ``tutorials`` folder and type:
+```bash
+python run_code_on_dataset_tutorial.py
+```
+And it will automatically run examples ``s1``, ``s2``, and ``s3`` contained in the ``sample_dataset`` folder. This script can be readily adapted to run through an alternative dataset. However, please note that the input data must be prepared following the prior instructions and ``yaml`` files must be included. In preparing the dataset in this format, the following python commands may be helpful: ``list.startswith(".")``, ``list.find(".db")``, ``list.find(".nd")``, ``folder1.joinpath(folder2).resolve()``, ``glob.glob(string + "/.TIF")``, ``string.split(".")``, ``string.split("_")``, ``string.split("/")``, ``np.unique(name_list)``, ``shutil.move(file, file_new)``, ``os.rename(file, file_new)``, and ``os.system(string)`` where ``string`` may contiain linux commands such as ``mv`` or ``cp`` etc.. These commands come from the packages: ``glob``, ``os``, ``numpy``, ``pathlib``, and ``shutil``.
 
 ### Understanding the output files
 
 For the tutorial example, outputs are summarized as follows. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character) and corresponds to frame number.
 
-Outputs from brightfield segmentation:
+Outputs from brightfield segmentation (``test_movie`` example):
 * ``files/test_movie/segment_brightfield/contour_coords_*.npy``
 * ``files/test_movie/segment_brightfield/tissue_mask_*.npy``
 * ``files/test_movie/segment_brightfield/wound_mask_*.npy``
@@ -183,7 +190,7 @@ Outputs from brightfield segmentation:
 * ``files/test_movie/segment_brightfield/is_closed_vs_frame.txt``
 * ``files/test_movie/segment_brightfield/tissue_parameters_vs_frame.txt``
 
-Outputs from fluorescent segmentation:
+Outputs from fluorescent segmentation (``test_movie`` example):
 * ``files/test_movie/segment_fluorescent/contour_coords_*.npy``
 * ``files/test_movie/segment_fluorescent/tissue_mask_*.npy``
 * ``files/test_movie/segment_fluorescent/wound_mask_*.npy``
@@ -193,6 +200,17 @@ Outputs from fluorescent segmentation:
 * ``files/test_movie/segment_fluorescent/is_broken_vs_frame.txt.txt``
 * ``files/test_movie/segment_fluorescent/is_closed_vs_frame.txt``
 * ``files/test_movie/segment_fluorescent/tissue_parameters_vs_frame.txt``
+
+Outputs from ph1 segmentation (``sample_dataset`` example):
+* ``files/sample_dataset/s*/segment_ph1/contour_coords_*.npy``
+* ``files/sample_dataset/s*/segment_ph1/tissue_mask_*.npy``
+* ``files/sample_dataset/s*/segment_ph1/wound_mask_*.npy``
+* ``files/sample_dataset/s*/segment_ph1/wound_area_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/wound_major_axis_length_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/wound_minor_axis_length_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/is_broken_vs_frame.txt.txt``
+* ``files/sample_dataset/s*/segment_ph1/is_closed_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/tissue_parameters_vs_frame.txt``
 
 The files ``is_broken_vs_frame.txt`` and ``is_closed_vs_frame.txt`` report ``0`` for ``False`` and ``1`` for ``True`` with one entry per frame. For example, if the tissue never breaks and never closes, both files will just contain a 1D array of zeros.
 
@@ -206,17 +224,21 @@ The file ``tissue_parameters_vs_frame.txt`` has one row per frame, where the col
 * ``kappa_1``: tissue curvature at ``pt1``
 * ``kappa_2``: tissue curvature at ``pt2``
 
-Output from brightfield segmentation visualization:
+Output from brightfield segmentation visualization (``test_movie``):
 * ``files/test_movie/segment_brightfield/visualization/brightfield_contour_*.png``
-* ``files/test_movie/segment_brightfield/visualization/brightfield.gif``
+* ``files/test_movie/segment_brightfield/visualization/brightfield_contour.gif``
 
-Output from fluorescent segmentation visualization:
+Output from fluorescent segmentation visualization (``test_movie``):
 * ``files/test_movie/segment_fluorescent/visualization/fluorescent_contour_*.png``
-* ``files/test_movie/segment_fluorescent/visualization/fluorescent.gif``
+* ``files/test_movie/segment_fluorescent/visualization/fluorescent_contour.gif``
 
-Output from brightfield segmentation with fluorescent segmentation visualization:
+Output from brightfield segmentation with fluorescent segmentation visualization (``test_movie``):
 * ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl_*.png``
 * ``files/test_movie/bf_seg_with_fl_seg_visualize/bf_with_fl.gif``
+
+Output from ph1 segmentation visualization (``sample_dataset``):
+* ``files/sample_dataset/s*/segment_ph1/visualization/ph1_contour_*.png``
+* ``files/sample_dataset/s*/segment_ph1/visualization/ph1_contour.gif``
 
 Notably, these outputs contain the tissue and wound mask for each segmented image:
 
@@ -240,20 +262,67 @@ And, they contain wound area, wound major axis length, and wound minor axis leng
 <img alt="wound minor axis vs. frame" src="tutorials/figs/wound_minor_axis.png" width="32%" />
 </p>
 
-Finally, they contain the wound contours, and wound contour visualizations (red solid line is the brightfield contour, blue dashed line is the fluorescent contour.)
+They also contain the wound contours, and wound contour visualizations (red solid line is the brightfield contour, blue dashed line is the fluorescent contour.)
 
 <p align = "center">
 <img alt="contour visualization" src="tutorials/figs/bf_with_fl.gif" width="80%" />
 </p>
 
+
+Finally, updated visualizations also show wound contour visualization, tissue width visualization, and text annotations if the tissue is either ``broken`` or ``closed``.
+
+<p align = "center">
+<img alt="contour visualization" src="tutorials/figs/anish.gif" width="80%" />
+</p>
+
+
+## Validation <a name="validation"></a>
+To date, we have compared code outputs vs. manual outputs for 246 samples across 5 experiments (2 different researchers performed these experiments). For all cases shown here, the code is run with identical parameters and generated no errors on these samples during runtime. Validation results are shown below.
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/20190502_LVP8_broken_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/20190502_LVP8_closed_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/20190502_LVP8_area_comparison.png" width="32%" />
+</p>
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/20210930_LVP64_broken_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/20210930_LVP64_closed_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/20210930_LVP64_area_comparison.png" width="32%" />
+</p>
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/20211009_LVP65_broken_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/20211009_LVP65_closed_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/20211009_LVP65_area_comparison.png" width="32%" />
+</p>
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/20211010_LVP66_broken_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/20211010_LVP66_closed_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/20211010_LVP66_area_comparison.png" width="32%" />
+</p>
+
+<p align = "center">
+<img alt="wound area vs. frame" src="tutorials/figs/20220516_NHDFneo_Sen_broken_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound major axis vs. frame" src="tutorials/figs/20220516_NHDFneo_Sen_closed_tissue_confusion_matrix.png" width="32%" />
+<img alt="wound minor axis vs. frame" src="tutorials/figs/20220516_NHDFneo_Sen_area_comparison.png" width="32%" />
+</p>
+
+Please note that in some cases, there may be errors in defining ground truth data, whereas in other cases the code may not perfectly capture experimental results (e.g., losing image focus). For more details on the experimental setup, please see our [References to Related Work](#references) section
+
 ## To-Do List <a name="todo"></a>
-- [ ] Add segmentation tools specific to Phase Contrast Microscopy
-- [ ] Include functions and I/O for a more zoomed out FOV
-- [ ] Include previous work on tissue deformation tracking in this repository
-- [ ] Identify where segmentation fails and add additional functions to accomodate these scenarios (starting point: Anish's dataset)
-- [ ] Validate wound segmentation vs. hand labeled data
+- [x] Add segmentation tools specific to Phase Contrast Microscopy
+- [x] Include previous work on tissue deformation tracking in this repository
+- [ ] Perform large scale validation and testing of tissue deformation tracking (functions and preliminary tests have been uploaded but not finalized)
+- [x] Implement a check for broken tissue
+- [x] Implement a check for closed tissue
+- [x] Implement error catching to enable high-throughput runs of the code
+- [x] Validate wound segmentation vs. hand labeled data (Megan data + Anish data considered thus far)
+- [ ] Perform additional validation vs. hand labeled data
+- [x] Add tissue width measurements to code outputs
 - [ ] Compare our procedural wound segmentation to machine learning approaches to wound segmentation
-- [ ] Add additional quantities of interest to the automatically computed outputs
+- [ ] Add additional quantities of interest to the automatically computed outputs/ improve current functionality
 - [ ] Work on input/output data formatting to better fit experimental needs
 - [ ] ?
 
