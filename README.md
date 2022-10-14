@@ -279,6 +279,8 @@ Finally, updated visualizations also show wound contour visualization, tissue wi
 <img alt="contour visualization" src="tutorials/figs/megan.gif" width="80%" />
 </p>
 
+Please note that the two examples above run with the same parameters and code configuration -- differences in geometry and image setup are handled automatically.
+
 ## Validation <a name="validation"></a>
 To date, we have compared code outputs vs. manual outputs for 246 samples across 5 experiments (2 different researchers performed these experiments). For all cases shown here, the code is run with identical parameters and generated no errors on these samples during runtime. Validation results are shown below.
 
