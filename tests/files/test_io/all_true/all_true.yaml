@@ -19,3 +19,4 @@ bf_seg_with_fl_seg_visualize: True
 bf_track_with_fl_seg_visualize: True
 ph1_seg_with_fl_seg_visualize: True
 ph1_track_with_fl_seg_visualize: True
+zoom_type: 1
