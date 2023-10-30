@@ -112,8 +112,8 @@ def wound_mask_from_points(
     # find the edge points -- initial tracking points closest to the edge of the wound
     edge_pts = []
     for kk in range(0, wound_contour.shape[0]):
-        x = wound_contour[kk, 0]
-        y = wound_contour[kk, 1]
+        x = wound_contour[kk, 1]  # CHANGED
+        y = wound_contour[kk, 0]  # CHANGED
         dist = distance.cdist(np.asarray([[x, y]]), initial_xy, 'euclidean')
         argmin = np.argmin(dist)
         edge_pts.append(argmin)

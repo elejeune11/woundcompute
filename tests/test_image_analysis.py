@@ -665,6 +665,89 @@ def test_run_all_ph1_many_examples_anish():
     assert len(action_all) == 4
 
 
+def test_run_texture_tracking():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "track_ph1")
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    assert path_tx.is_file()
+    assert path_ty.is_file()
+    assert path_txr.is_file()
+    assert path_tyr.is_file()
+    assert tracker_x_forward.shape[1] == tracker_y_forward.shape[1]
+    assert tracker_x_reverse_forward.shape[1] == tracker_y_reverse_forward.shape[1]
+
+
+def test_show_and_save_tracking():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "track_ph1")
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    img_list = ia.read_all_tiff(input_path)
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
+    zoom_fcn_idx = 1
+    is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
+    contour_list = seg.contour_all(wound_mask_list)
+    img = img_list[-1]
+    contour = contour_list[-1]
+    is_broken = is_broken_list[-1]
+    is_closed = is_closed_list[-1]
+    frame = len(img_list) - 1
+    save_path = output_file("test_phi_movie_mini_Anish_tracking", "test_save_tracking_title.png")
+    title = "example_anish_example"
+    ia.show_and_save_tracking(img, contour, is_broken, is_closed, frame, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, save_path, title)
+    assert save_path.is_file()
+
+
+def test_save_all_img_tracking():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "track_ph1")
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    img_list = ia.read_all_tiff(input_path)
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
+    zoom_fcn_idx = 1
+    is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
+    contour_list = seg.contour_all(wound_mask_list)
+    fname = "test"
+    file_name_list = ia.save_all_img_tracking(output_path, fname, img_list, contour_list, is_broken_list, is_closed_list, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
+    for fn in file_name_list:
+        assert fn.is_file()
+
+
+def test_run_texture_tracking_visualize():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "track_ph1")
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    img_list = ia.read_all_tiff(input_path)
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
+    zoom_fcn_idx = 1
+    is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
+    contour_list = seg.contour_all(wound_mask_list)
+    (path_list, gif_path) = ia.run_texture_tracking_visualize(output_path, img_list, contour_list, is_broken_list, is_closed_list, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
+    assert gif_path.is_file()
+    for pa in path_list:
+        assert pa.is_file()
+
+
+def test_run_all_tracking():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    time_all, action_all = ia.run_all(folder_path)
+    assert len(time_all) == 4
+    assert len(action_all) == 4
+
+
 # def test_line_param():
 #     array = np.zeros((50, 50))
 #     array[5:40, 10:15] = 1
