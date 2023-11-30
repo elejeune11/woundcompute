@@ -247,6 +247,8 @@ def input_info_to_input_paths(folder_path: Path) -> dict:
 def image_folder_to_path_list(folder_path: Path) -> List:
     """Given a folder path. Will return the path to all files in that path in order."""
     name_list = glob.glob(str(folder_path) + '/*.TIF')
+    if len(name_list) == 0:
+        name_list = glob.glob(str(folder_path) + '/*.tif')
     name_list.sort()
     name_list_path = []
     for name in name_list:
