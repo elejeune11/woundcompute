@@ -182,9 +182,9 @@ def test_perform_tracking():
     include_reverse = True
     wound_mask = wound_mask_list[0]
     wound_contour = seg.mask_to_contour(wound_mask)
-    tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     include_reverse = False
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     assert tracker_x.shape[1] == len(img_list)
     assert tracker_y.shape[1] == len(img_list)
     assert tracker_x_reverse.shape[1] == len(img_list)
@@ -193,3 +193,5 @@ def test_perform_tracking():
     assert tracker_y_forward.shape[1] == len(img_list)
     assert tracker_x_reverse_forward is None
     assert tracker_y_reverse_forward is None
+    assert frame_final_mask.shape[0] == frame_0_mask.shape[0]
+    assert frame_final_mask.shape[1] == frame_0_mask.shape[1]

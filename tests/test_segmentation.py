@@ -111,6 +111,16 @@ def test_apply_otsu_thresh():
     assert np.allclose(known, found)
 
 
+def test_apply_thresh_multiotsu():
+    dim = 100
+    arr = np.zeros((dim, dim))
+    arr[0:10, :] = 1
+    arr[50:70, 80:90] = 2
+    known = arr > 0
+    found = seg.apply_thresh_multiotsu(arr)
+    assert np.allclose(known, found)
+
+
 def test_get_region_props():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
@@ -361,6 +371,14 @@ def test_threshold_all():
     assert np.min(thresh_img) == 0
     assert thresh_img.shape[0] == example_file.shape[0]
     assert thresh_img.shape[1] == example_file.shape[1]
+    # spectra use case -- fluorescent
+    file_path = glob_fluorescent("test_single")[1]
+    example_file = io.imread(file_path)
+    thresh_img = seg.threshold_array(example_file, 5)
+    assert np.max(thresh_img) == 1
+    assert np.min(thresh_img) == 0
+    assert thresh_img.shape[0] == example_file.shape[0]
+    assert thresh_img.shape[1] == example_file.shape[1]
     # error due to unaccounted for case
     with pytest.raises(ValueError) as error:
         seg.threshold_array(example_file, 15)
@@ -423,6 +441,19 @@ def test_isolate_masks_gfp():
     example_file = io.imread(file_path)
     thresh_img = seg.threshold_array(example_file, 2)
     tissue_mask, wound_mask, _ = seg.isolate_masks(thresh_img, 2)
+    assert np.max(tissue_mask) == 1
+    assert np.min(tissue_mask) == 0
+    assert tissue_mask.shape[0] == tissue_mask.shape[0]
+    assert tissue_mask.shape[1] == tissue_mask.shape[1]
+    assert np.max(wound_mask) == 1
+    assert np.min(wound_mask) == 0
+    assert wound_mask.shape[0] == wound_mask.shape[0]
+    assert wound_mask.shape[1] == wound_mask.shape[1]
+    assert np.sum(wound_mask + tissue_mask <= 1) == wound_mask.shape[0] * wound_mask.shape[1]
+    file_path = glob_fluorescent("test_single")[1]
+    example_file = io.imread(file_path)
+    thresh_img = seg.threshold_array(example_file, 5)
+    tissue_mask, wound_mask, _ = seg.isolate_masks(thresh_img, 5)
     assert np.max(tissue_mask) == 1
     assert np.min(tissue_mask) == 0
     assert tissue_mask.shape[0] == tissue_mask.shape[0]
@@ -549,6 +580,12 @@ def test_select_threshold_function():
     assert error.typename == "ValueError"
 
     input_dict["seg_fl_version"] = 2
+    is_brightfield = False
+    is_fluorescent = True
+    is_ph1 = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 5
+
+    input_dict["seg_fl_version"] = 3
     is_brightfield = False
     is_fluorescent = True
     is_ph1 = False

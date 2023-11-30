@@ -2,6 +2,7 @@ import numpy as np
 from scipy import ndimage
 from skimage import measure, morphology
 from skimage.filters import threshold_otsu, gabor
+from skimage.filters import threshold_multiotsu
 from skimage.measure import label, regionprops
 from typing import List, Union
 
@@ -215,8 +216,15 @@ def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 11, ff_
     return gabor_all
 
 
+def apply_thresh_multiotsu(array: np.ndarray):
+    thresholds = threshold_multiotsu(array)
+    regions = np.digitize(array, bins=thresholds)
+    foreground = regions > 0
+    return foreground
+
+
 def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
-    """Given an image wrray. Will return a binary array where object = 0, background = 1."""
+    """Given an image array. Will return a binary array where object = 0, background = 1."""
     if selection_idx == 1:
         """Given a brightfield image array. Will return a binary array where tissue = 0, background = 1."""
         median_filter_size = 5
@@ -250,6 +258,11 @@ def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
         thresh_img = apply_otsu_thresh(gaussian_applied)
         thresh_img_inverted = invert_mask(thresh_img)
         return thresh_img_inverted
+    elif selection_idx == 5:
+        """Given a gfp image array. Will return a binary array where gfp = 0, background = 1."""
+        foreground = apply_thresh_multiotsu(array)
+        thresh_img_inverted = invert_mask(foreground)
+        return thresh_img_inverted
     else:
         raise ValueError("specified version is not supported")
 
@@ -275,7 +288,7 @@ def get_mean_center(array: np.ndarray) -> Union[float, int]:
 def isolate_masks(array: np.ndarray, selection_idx: int) -> np.ndarray:
     """Given a binary mask where background = 1. Will return a mask where `tissue' = 1.
     Will return a mask where `wound' = 1."""
-    if selection_idx == 1 or selection_idx == 2 or selection_idx == 3 or selection_idx == 4:
+    if selection_idx == 1 or selection_idx == 2 or selection_idx == 3 or selection_idx == 4 or selection_idx == 5:
         # select the three largest "background" regions -- side, side, wound
         region_props = get_region_props(array)
         # new approach -> remove all regions that aren't touching the boundaries
@@ -406,5 +419,7 @@ def select_threshold_function(
         return 3
     elif is_ph1 and input_dict["seg_ph1_version"] == 2:
         return 4
+    elif is_fluorescent and input_dict["seg_fl_version"] == 2:
+        return 5
     else:
         raise ValueError("specified version is not supported")

@@ -718,8 +718,10 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     wound_contour = seg.mask_to_contour(wound_mask)
     # include reverse tracking
     include_reverse = True
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     # save tracking results
+    path_final_frame_mask = output_path.joinpath("tracker_final_wound_mask.txt").resolve()
+    np.savetxt(str(path_final_frame_mask), frame_final_mask, fmt="%i")  # TODO: make this more specific -- will be used for key output metrics
     path_tx = output_path.joinpath("tracker_x_forward.txt").resolve()
     np.savetxt(str(path_tx), tracker_x_forward)
     path_ty = output_path.joinpath("tracker_y_forward.txt").resolve()
@@ -757,11 +759,11 @@ def show_and_save_tracking(
         else:
             if contour is not None:
                 plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
-            # plot tracked points
-            plt.plot(tracker_x_forward[:, 0:frame].T, tracker_y_forward[:, 0:frame].T, "y-")
-            plt.plot(tracker_x_forward[:, frame], tracker_y_forward[:, frame], "y.")
-            plt.plot(tracker_x_reverse_forward[:, 0:frame].T, tracker_y_reverse_forward[:, 0:frame].T, "c-")
-            plt.plot(tracker_x_reverse_forward[:, frame], tracker_y_reverse_forward[:, frame], "c.")
+        # plot tracked points
+        plt.plot(tracker_x_forward[:, 0:frame].T, tracker_y_forward[:, 0:frame].T, "y-")
+        plt.plot(tracker_x_forward[:, frame], tracker_y_forward[:, frame], "y.")
+        plt.plot(tracker_x_reverse_forward[:, 0:frame].T, tracker_y_reverse_forward[:, 0:frame].T, "c-")
+        plt.plot(tracker_x_reverse_forward[:, frame], tracker_y_reverse_forward[:, frame], "c.")
     plt.title(title)
     plt.axis('off')
     plt.tight_layout()

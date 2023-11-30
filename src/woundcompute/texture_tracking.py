@@ -156,9 +156,9 @@ def perform_tracking(frame_0_mask: np.ndarray, img_list: List, include_reverse: 
     is_forward = True
     order_list = get_order_track(len_img_list, is_forward)
     tracker_x, tracker_y = track_all_steps(img_list_uint8, frame_0_mask, order_list)
+    # create wound mask
+    _, frame_final_mask = wound_mask_from_points(frame_0_mask, tracker_x, tracker_y, wound_contour)
     if include_reverse:
-        # create wound mask
-        _, frame_final_mask = wound_mask_from_points(frame_0_mask, tracker_x, tracker_y, wound_contour)
         # perform reverse tracking
         is_forward = False
         order_list = get_order_track(len_img_list, is_forward)
@@ -169,4 +169,4 @@ def perform_tracking(frame_0_mask: np.ndarray, img_list: List, include_reverse: 
     else:
         tracker_x_reverse = None
         tracker_y_reverse = None
-    return tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse
+    return frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse
