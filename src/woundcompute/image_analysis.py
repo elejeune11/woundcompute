@@ -720,7 +720,7 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     wound_contour = seg.mask_to_contour(wound_mask)
     # include reverse tracking
     include_reverse = True
-    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     # save tracking results
     path_final_frame_mask = output_path.joinpath("tracker_final_wound_mask.txt").resolve()
     np.savetxt(str(path_final_frame_mask), frame_final_mask, fmt="%i")  # TODO: make this more specific -- will be used for key output metrics
@@ -732,7 +732,11 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     np.savetxt(str(path_txr), tracker_x_reverse_forward)
     path_tyr = output_path.joinpath("tracker_y_reverse_forward.txt").resolve()
     np.savetxt(str(path_tyr), tracker_y_reverse_forward)
-    return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr
+    path_wound_area = output_path.joinpath("tracker_wound_area.txt").resolve()
+    np.savetxt(str(path_wound_area), np.asarray(wound_area_list))
+    path_wound_masks = output_path.joinpath("tracker_wound_masks.npy").resolve()
+    np.save(str(path_wound_masks), wound_masks_all)
+    return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks
 
 
 def show_and_save_tracking(
@@ -819,6 +823,15 @@ def run_texture_tracking_visualize(
     return (path_list, gif_path)
 
 
+def load_contour_coords(folder_path: Path):
+    file_list = glob.glob(str(folder_path) + "/segment_ph1/contour_coords*.npy")
+    file_list = np.sort(file_list)
+    contour_coords_list = []
+    for kk in range(0, len(file_list)):
+        contour_coords_list.append(np.load(str(folder_path) + "/segment_ph1/contour_coords_%05d.npy" % (kk)))
+    return contour_coords_list
+
+
 def run_all(folder_path: Path) -> List:
     """Given a folder path. Will read input, run code, generate all outputs."""
     time_all = []
@@ -884,11 +897,16 @@ def run_all(folder_path: Path) -> List:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["track_ph1_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
-        tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
+        tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _, _, _, _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run texture tracking")
     if input_dict["track_ph1_visualize"] is True:
         output_path = output_path_dict["track_ph1_vis_path"]
+        input_path = input_path_dict["ph1_images_path"]
+        img_list_ph1 = read_all_tiff(input_path)
+        contour_list_ph1 = load_contour_coords(folder_path)
+        is_broken_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_broken_vs_frame.txt"))
+        is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
         _ = run_texture_tracking_visualize(output_path, img_list_ph1, contour_list_ph1, is_broken_list_ph1, is_closed_list_ph1, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
         time_all.append(time.time())
         action_all.append("run texture tracking")

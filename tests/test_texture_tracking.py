@@ -20,12 +20,25 @@ def example_path(example_name):
 
 def test_get_tracking_param_dicts():
     feature_params, lk_params = tt.get_tracking_param_dicts()
-    assert feature_params["maxCorners"] == 1000
-    assert feature_params["qualityLevel"] == 0.1
-    assert feature_params["minDistance"] == 7
-    assert feature_params["blockSize"] == 7
-    assert lk_params["winSize"][0] == 50
-    assert lk_params["winSize"][1] == 50
+    assert feature_params["maxCorners"] == 10000
+    assert feature_params["qualityLevel"] == 0.01
+    assert feature_params["minDistance"] == 10
+    assert feature_params["blockSize"] == 10
+    assert lk_params["winSize"][0] == 100
+    assert lk_params["winSize"][1] == 100
+    assert lk_params["maxLevel"] == 10
+    assert lk_params["criteria"][1] == 10
+    assert lk_params["criteria"][2] == 0.03
+
+
+def test_get_tracking_param_dicts_pillar():
+    feature_params, lk_params = tt.get_tracking_param_dicts_pillar()
+    assert feature_params["maxCorners"] == 100
+    assert feature_params["qualityLevel"] == 0.01
+    assert feature_params["minDistance"] == 3
+    assert feature_params["blockSize"] == 3
+    assert lk_params["winSize"][0] == 100
+    assert lk_params["winSize"][1] == 100
     assert lk_params["maxLevel"] == 10
     assert lk_params["criteria"][1] == 10
     assert lk_params["criteria"][2] == 0.03
@@ -182,9 +195,9 @@ def test_perform_tracking():
     include_reverse = True
     wound_mask = wound_mask_list[0]
     wound_contour = seg.mask_to_contour(wound_mask)
-    frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse, wound_area_list, wound_masks_all = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     include_reverse = False
-    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _ = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     assert tracker_x.shape[1] == len(img_list)
     assert tracker_y.shape[1] == len(img_list)
     assert tracker_x_reverse.shape[1] == len(img_list)
@@ -195,3 +208,62 @@ def test_perform_tracking():
     assert tracker_y_reverse_forward is None
     assert frame_final_mask.shape[0] == frame_0_mask.shape[0]
     assert frame_final_mask.shape[1] == frame_0_mask.shape[1]
+    assert len(wound_area_list) == len(img_list)
+    assert len(wound_masks_all) == len(img_list)
+    include_reverse = False
+    _, _, _, tracker_x_reverse, tracker_y_reverse, _, _ = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    assert tracker_x_reverse is None
+    assert tracker_y_reverse is None
+
+
+def test_wound_areas_from_points():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list_orig = ia.read_all_tiff(folder_path)
+    img_list = [img_list_orig[0], img_list_orig[1], img_list_orig[2]]
+    threshold_function_idx = 4
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+    tissue_mask = tissue_mask_list[0]
+    wound_mask = wound_mask_list[0]
+    wound_contour = seg.mask_to_contour(wound_mask)
+    frame_0_mask = img_list[0]
+    img_list_uint8 = tt.uint16_to_uint8_all(img_list)
+    order_list = tt.get_order_track(len(img_list_uint8), True)
+    tracker_x, tracker_y = tt.track_all_steps(img_list_uint8, tissue_mask, order_list)
+    wound_area_list, wound_masks_all = tt.wound_areas_from_points(frame_0_mask, tracker_x, tracker_y, wound_contour)
+    assert len(wound_area_list) == tracker_x.shape[1]
+    assert len(wound_masks_all) == tracker_x.shape[1]
+    wound_area_list, wound_masks_all = tt.wound_areas_from_points(frame_0_mask, tracker_x, tracker_y, wound_contour, False)
+    assert len(wound_area_list) == tracker_x.shape[1]
+    assert len(wound_masks_all) == tracker_x.shape[1]
+
+
+def test_perform_pillar_tracking():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    # img_list = img_list[0:5]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list)
+    assert avg_disp_all_x.shape[0] == len(img_list)
+    assert avg_disp_all_y.shape[0] == len(img_list)
+    assert avg_disp_all_x.shape[1] == 4
+    assert avg_disp_all_y.shape[1] == 4
+
+
+def test_track_all_steps_pillar():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list_orig = ia.read_all_tiff(folder_path)
+    img_list_uint8 = tt.uint16_to_uint8_all(img_list_orig)
+    order_list = tt.get_order_track(len(img_list_uint8), True)
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img_list_orig[0], threshold_function_idx)
+    tracker_x, tracker_y = tt.track_all_steps(img_list_uint8, pillar_mask_list[0], order_list, True)
+    assert tracker_x.shape[1] == len(img_list_orig)
+    assert tracker_y.shape[1] == len(img_list_orig)

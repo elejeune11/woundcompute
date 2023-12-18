@@ -1,6 +1,7 @@
 import cv2
 import math
 import numpy as np
+from scipy.spatial import distance
 from skimage.transform import rotate
 from skimage import measure
 from scipy import ndimage
@@ -119,7 +120,7 @@ def get_local_curvature(contour: np.ndarray, mask: np.ndarray, ix_center: int, s
 
 
 def mask_to_box(mask: np.ndarray, border: int = 0) -> np.ndarray:
-    """Given a mask. Will return the minimum area bounding rectangle."""
+    """Given a mask. Will return the minimum area bounding rectangle."""    
     # insert borders to the mask
     if border > 0:
         mask_mod = insert_borders(mask, border)
@@ -240,6 +241,81 @@ def get_tissue_width(tissue_mask_robust: np.ndarray, width_buffer: int = 5) -> f
     return tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig
 
 
+def compute_distance_multi_point(coords_1: np.ndarray, coords_2: np.ndarray):
+    """Find the shortest distance between points in two arrays.
+    Each array is formatted idx_0 points, idx_2 points."""
+    arr = distance.cdist(coords_1, coords_2, 'euclidean')
+    ind = np.unravel_index(np.argmin(arr, axis=None), arr.shape)
+    coords_1_idx = ind[0]
+    coords_2_idx = ind[1]
+    return coords_1_idx, coords_2_idx
+
+
+def get_tissue_width_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray):
+    border = 1
+    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask, border)
+    tissue_mask_robust = seg.insert_borders(tissue_mask_robust, border, 1)
+    background_mask = tissue_mask_robust < 0.5
+    border = 10
+    background_mask_borders = seg.insert_borders(background_mask, border)
+    region_props = seg.get_region_props(background_mask_borders)
+    num_regions = 2
+    regions_list = seg.get_longest_regions(region_props, num_regions)
+    coords_1 = regions_list[0].coords
+    coords_2 = regions_list[1].coords
+    coords_1_idx, coords_2_idx = compute_distance_multi_point(coords_1, coords_2)
+    pt1_0_orig = coords_1[coords_1_idx, 1]
+    pt1_1_orig = coords_1[coords_1_idx, 0]
+    pt2_0_orig = coords_2[coords_2_idx, 1]
+    pt2_1_orig = coords_2[coords_2_idx, 0]
+    tissue_width = compute_distance(pt1_0_orig, pt2_0_orig, pt1_1_orig, pt2_1_orig)
+    return tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig
+
+
+# def get_tissue_width_zoom(tissue_mask_robust: np.ndarray, width_buffer: int = 5):
+#     border_buffer = 10
+#     tissue_mask_robust_border = seg.insert_borders(tissue_mask_robust, border_buffer, 1)
+#     non_tissue = tissue_mask_robust_border < 0.5
+#     regions_list = seg.get_region_props(non_tissue)
+#     largest_region = seg.get_largest_regions(regions_list, 1)[0]
+#     ang = largest_region.orientation
+#     if ang < 0:
+#         ang += np.pi / 2.0
+#     else:
+#         ang -= np.pi / 2.0
+#     rot_mat = np.asarray([[np.cos(ang), -1.0 * np.sin(ang)], [np.sin(ang), np.cos(ang)]])
+#     # vec = [np.cos(ang), np.sin(ang)]
+#     center_row = int(tissue_mask_robust.shape[0] / 2.0)
+#     center_col = int(tissue_mask_robust.shape[1] / 2.0)
+#     rot_mask = rot_image(tissue_mask_robust, center_row, center_col, ang)
+#     tissue_width_all = []
+#     min_row_all = []
+#     max_row_all = []
+#     for kk in range(int(-1.0 * width_buffer), int(width_buffer)):
+#         center_width = np.nonzero(rot_mask[:, int(center_col + kk)] > 0)
+#         min_row = np.min(center_width)
+#         max_row = np.max(center_width)
+#         tissue_width_all.append(max_row - min_row)
+#         min_row_all.append(min_row)
+#         max_row_all.append(max_row)
+#     tissue_width = np.mean(tissue_width_all)
+#     # add in points --> points in un-rotated coordinate system
+#     pt1_0 = center_col
+#     pt1_1 = np.mean(min_row_all)
+#     pt2_0 = center_col
+#     pt2_1 = np.mean(max_row_all)
+#     row_pts = np.asarray([pt1_1, pt2_1])
+#     col_pts = np.asarray([pt1_0, pt2_0])
+#     # rotate points back to original coordinate system
+#     inv_rot_mat = invert_rot_mat(rot_mat)
+#     new_row_pts, new_col_pts = rotate_points(row_pts, col_pts, inv_rot_mat, center_row, center_col)
+#     pt1_0_orig = new_col_pts[0]
+#     pt1_1_orig = new_row_pts[0]
+#     pt2_0_orig = new_col_pts[1]
+#     pt2_1_orig = new_row_pts[1]
+#     return tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig
+
+
 def compute_dist_line_pt(pt0, pt1, line):
     dist_all = ((line[:, 0] - pt0) ** 2.0 + (line[:, 1] - pt1) ** 2.0) ** 0.5
     return dist_all
@@ -260,24 +336,41 @@ def tissue_parameters(tissue_mask: np.ndarray, wound_mask: np.ndarray):
     return tissue_width, area, kappa_1, kappa_2, pt1_1_orig, pt1_0_orig, pt2_1_orig, pt2_0_orig, tissue_contour
 
 
-def tissue_parameters_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray) -> Union[float, int]:
-    """Given a tissue mask. Will compute and return key properties."""
+def tissue_parameters_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray):
     area = np.sum(tissue_mask)
+    border = 10
+    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask, border)
+    tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = get_tissue_width_zoom(tissue_mask, wound_mask)
     tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
-    # tm_c_0, tm_c_1 = get_mean_center(tissue_mask_robust)
     tissue_contour = seg.mask_to_contour(tissue_mask_robust)
-    tissue_regions_all = seg.get_region_props(tissue_mask_robust)
-    tissue_region = seg.get_largest_regions(tissue_regions_all, 1)[0]
-    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(tissue_region)
-    width, contour_idx_0, contour_idx_1 = get_contour_width(tissue_contour, centroid_row, centroid_col, tissue_axis_major_length, tissue_axis_minor_length, orientation)
     sample_dist = np.min([100, tissue_contour.shape[0] * 0.1])
+    dist_pt1 = compute_dist_line_pt(pt1_0_orig, pt1_1_orig, tissue_contour)
+    dist_pt2 = compute_dist_line_pt(pt2_0_orig, pt2_1_orig, tissue_contour)
+    contour_idx_0 = np.argmin(dist_pt1)
+    contour_idx_1 = np.argmin(dist_pt2)
     kappa_1 = get_local_curvature(tissue_contour, tissue_mask_robust, contour_idx_0, sample_dist)
     kappa_2 = get_local_curvature(tissue_contour, tissue_mask_robust, contour_idx_1, sample_dist)
-    pt1_0 = tissue_contour[contour_idx_0, 0]
-    pt1_1 = tissue_contour[contour_idx_0, 1]
-    pt2_0 = tissue_contour[contour_idx_1, 0]
-    pt2_1 = tissue_contour[contour_idx_1, 1]
-    return width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, tissue_contour
+    return tissue_width, area, kappa_1, kappa_2, pt1_1_orig, pt1_0_orig, pt2_1_orig, pt2_0_orig, tissue_contour
+
+
+# def tissue_parameters_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray) -> Union[float, int]:
+#     """Given a tissue mask. Will compute and return key properties."""
+#     area = np.sum(tissue_mask)
+#     tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
+#     # tm_c_0, tm_c_1 = get_mean_center(tissue_mask_robust)
+#     tissue_contour = seg.mask_to_contour(tissue_mask_robust)
+#     tissue_regions_all = seg.get_region_props(tissue_mask_robust)
+#     tissue_region = seg.get_largest_regions(tissue_regions_all, 1)[0]
+#     _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(tissue_region)
+#     width, contour_idx_0, contour_idx_1 = get_contour_width(tissue_contour, centroid_row, centroid_col, tissue_axis_major_length, tissue_axis_minor_length, orientation)
+#     sample_dist = np.min([100, tissue_contour.shape[0] * 0.1])
+#     kappa_1 = get_local_curvature(tissue_contour, tissue_mask_robust, contour_idx_0, sample_dist)
+#     kappa_2 = get_local_curvature(tissue_contour, tissue_mask_robust, contour_idx_1, sample_dist)
+#     pt1_0 = tissue_contour[contour_idx_0, 0]
+#     pt1_1 = tissue_contour[contour_idx_0, 1]
+#     pt2_0 = tissue_contour[contour_idx_1, 0]
+#     pt2_1 = tissue_contour[contour_idx_1, 1]
+#     return width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, tissue_contour
 
 
 def tissue_parameters_all(tissue_mask_list: List, wound_mask_list: List, zoom_fcn_idx: int) -> List:

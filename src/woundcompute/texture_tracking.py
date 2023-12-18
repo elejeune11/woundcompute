@@ -5,14 +5,32 @@ from scipy.spatial import distance
 from shapely.geometry import Point
 from skimage import exposure, img_as_ubyte
 from typing import List
-from woundcompute import image_analysis as ia
 
 
 def get_tracking_param_dicts() -> dict:
     """Will return dictionaries specifying the feature parameters and tracking parameters.
     In future, these may vary based on version."""
-    feature_params = dict(maxCorners=1000, qualityLevel=0.1, minDistance=7, blockSize=7)
-    window = 50
+    # feature_params = dict(maxCorners=1000, qualityLevel=0.1, minDistance=7, blockSize=7)
+    # BEST: feature_params = dict(maxCorners=1000, qualityLevel=0.01, minDistance=7, blockSize=7)
+    # need to make these adaptive to the resolution of the image
+    # feature_params = dict(maxCorners=1000, qualityLevel=0.01, minDistance=20, blockSize=20)
+    feature_params = dict(maxCorners=10000, qualityLevel=0.01, minDistance=10, blockSize=10)
+    # window = 50
+    window = 100
+    lk_params = dict(winSize=(window, window), maxLevel=10, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+    return feature_params, lk_params
+
+
+def get_tracking_param_dicts_pillar() -> dict:
+    """Will return dictionaries specifying the feature parameters and tracking parameters.
+    In future, these may vary based on version."""
+    # feature_params = dict(maxCorners=1000, qualityLevel=0.1, minDistance=7, blockSize=7)
+    # BEST: feature_params = dict(maxCorners=1000, qualityLevel=0.01, minDistance=7, blockSize=7)
+    # need to make these adaptive to the resolution of the image
+    # feature_params = dict(maxCorners=1000, qualityLevel=0.01, minDistance=20, blockSize=20)
+    feature_params = dict(maxCorners=100, qualityLevel=0.01, minDistance=3, blockSize=3)
+    # window = 50
+    window = 100
     lk_params = dict(winSize=(window, window), maxLevel=10, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
     return feature_params, lk_params
 
@@ -61,10 +79,13 @@ def get_order_track(len_img_list: int, is_forward: bool) -> List:
         return list(range(len_img_list - 1, -1, -1))
 
 
-def track_all_steps(img_list_uint8: List, mask: np.ndarray, order_list: List) -> np.ndarray:
+def track_all_steps(img_list_uint8: List, mask: np.ndarray, order_list: List, is_pillar: bool = False) -> np.ndarray:
     """Given the image list, mask, and order. Will run tracking through the whole img list in order.
     Note that the returned order of tracked points will match order_list."""
-    feature_params, lk_params = get_tracking_param_dicts()
+    if is_pillar:
+        feature_params, lk_params = get_tracking_param_dicts_pillar()
+    else:
+        feature_params, lk_params = get_tracking_param_dicts()
     img_0 = img_list_uint8[order_list[0]]
     track_points = mask_to_track_points(img_0, mask, feature_params)
     num_track_pts = track_points.shape[0]
@@ -147,6 +168,57 @@ def wound_mask_from_points(
     return mask_wound_initial, mask_wound_final
 
 
+def wound_areas_from_points(
+    frame_0_mask: np.ndarray,
+    tracker_x: np.ndarray,
+    tracker_y: np.ndarray,
+    wound_contour: np.ndarray,
+    alpha_assigned: bool = True,
+    assigned_alpha: float = 0.01
+) -> np.ndarray:
+    """Given tracking results and frame 0 wound contour. Will create wound masks based on the alphashape of the close track points."""
+    num_pts = tracker_x.shape[0]
+    initial_xy = np.zeros((num_pts, 2))
+    initial_xy[:, 0] = tracker_x[:, 0]
+    initial_xy[:, 1] = tracker_y[:, 0]
+    wound_masks_all = []
+    # find the edge points -- initial tracking points closest to the edge of the wound
+    edge_pts = []
+    for kk in range(0, wound_contour.shape[0]):
+        x = wound_contour[kk, 1]  # CHANGED
+        y = wound_contour[kk, 0]  # CHANGED
+        dist = distance.cdist(np.asarray([[x, y]]), initial_xy, 'euclidean')
+        argmin = np.argmin(dist)
+        edge_pts.append(argmin)
+    edge_pts = get_unique(edge_pts)
+    # convert the edge points into an alpha shape
+    num_edge_pts = len(edge_pts)
+    wound_area_list = []
+    for jj in range(0, tracker_x.shape[1]):
+        final_xy = np.zeros((num_pts, 2))
+        final_xy[:, 0] = tracker_x[:, jj]
+        final_xy[:, 1] = tracker_y[:, jj]
+        points_2d_final = []
+        for kk in range(0, num_edge_pts):
+            ix = edge_pts[kk]
+            points_2d_final.append((final_xy[ix, 0], final_xy[ix, 1]))
+        if alpha_assigned:
+            alpha_shape_final = alphashape.alphashape(points_2d_final, assigned_alpha)
+        else:  # this will automatically select alpha, however it can be slow
+            alpha_shape_final = alphashape.alphashape(points_2d_final)
+        # convert the alpha shape into wound masks
+        mask_wound_final = np.zeros(frame_0_mask.shape)
+        # convert to a mask
+        for kk in range(0, frame_0_mask.shape[0]):
+            for jj in range(0, frame_0_mask.shape[1]):
+                if alpha_shape_final.contains(Point(jj, kk)) is True:
+                    mask_wound_final[kk, jj] = 1
+        mask_wound_final = mask_wound_final > 0
+        wound_area_list.append(np.sum(mask_wound_final))
+        wound_masks_all.append(mask_wound_final)
+    return wound_area_list, wound_masks_all
+
+
 def perform_tracking(frame_0_mask: np.ndarray, img_list: List, include_reverse: bool = True, wound_contour: np.ndarray = None):
     """Given an initial mask and all images. Will perform forward and reverse (optional) tracking."""
     # convert img_list to all uint8 images
@@ -169,4 +241,25 @@ def perform_tracking(frame_0_mask: np.ndarray, img_list: List, include_reverse: 
     else:
         tracker_x_reverse = None
         tracker_y_reverse = None
-    return frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse
+    wound_area_list, wound_masks_all = wound_areas_from_points(frame_0_mask, tracker_x, tracker_y, wound_contour)
+    return frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse, wound_area_list, wound_masks_all
+
+
+def perform_pillar_tracking(pillar_mask_list: List, img_list: List):
+    # convert img_list to all uint8 images
+    img_list_uint8 = uint16_to_uint8_all(img_list)
+    len_img_list = len(img_list_uint8)
+    is_forward = True
+    order_list = get_order_track(len_img_list, is_forward)
+    # for each pillar mask perform tracking
+    num_pillars = len(pillar_mask_list)
+    avg_disp_all_x = np.zeros((len_img_list, num_pillars))
+    avg_disp_all_y = np.zeros((len_img_list, num_pillars))
+    for kk in range(0, num_pillars):
+        tracker_x, tracker_y = track_all_steps(img_list_uint8, pillar_mask_list[kk], order_list)
+        # consolidate average displacement
+        tracker_x_avg = np.mean(tracker_x, axis=0)
+        tracker_y_avg = np.mean(tracker_y, axis=0)
+        avg_disp_all_x[:, kk] = tracker_x_avg
+        avg_disp_all_y[:, kk] = tracker_y_avg
+    return avg_disp_all_x, avg_disp_all_y

@@ -352,6 +352,15 @@ def test_input_info_to_output_folders_create_all():
         assert path_dict[key].is_dir()
 
 
+def test_image_folder_to_path_list_tif():
+    io_path = example_path("test_io")
+    folder_path = io_path.joinpath("tif_lowercase").resolve()
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    path_list = ia.image_folder_to_path_list(path_dict["brightfield_images_path"])
+    assert len(path_list) == 5
+    assert str(path_list[-1])[-8:] == "0020.tif"
+
+
 def test_input_info_to_output_folders_create_none():
     io_path = example_path("test_io")
     folder_path = io_path.joinpath("all_false").resolve()
@@ -602,6 +611,13 @@ def test_run_all_ph1():
     assert len(action_all) == 4
 
 
+def test_load_contour_coords():
+    folder_path = example_path("test_ph1_mini_movie")
+    _, _ = ia.run_all(folder_path)
+    contour_coords_list = ia.load_contour_coords(folder_path)
+    assert len(contour_coords_list)
+
+
 def test_run_all_ph1_broken():
     folder_path = example_path("test_ph1_mini_movie_broken")
     time_all, action_all = ia.run_all(folder_path)
@@ -670,13 +686,17 @@ def test_run_texture_tracking():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     assert path_tx.is_file()
     assert path_ty.is_file()
     assert path_txr.is_file()
     assert path_tyr.is_file()
+    assert path_wound_area.is_file()
+    assert path_wound_masks.is_file()
     assert tracker_x_forward.shape[1] == tracker_y_forward.shape[1]
     assert tracker_x_reverse_forward.shape[1] == tracker_y_reverse_forward.shape[1]
+    assert len(wound_area_list) == tracker_x_forward.shape[1]
+    assert len(wound_masks_all) == tracker_x_forward.shape[1]
 
 
 def test_show_and_save_tracking():
@@ -684,7 +704,7 @@ def test_show_and_save_tracking():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
@@ -708,7 +728,7 @@ def test_save_all_img_tracking():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
@@ -727,7 +747,7 @@ def test_run_texture_tracking_visualize():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
@@ -744,9 +764,15 @@ def test_run_texture_tracking_visualize():
 def test_run_all_tracking():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     time_all, action_all = ia.run_all(folder_path)
+    assert len(time_all) == 6
+    assert len(action_all) == 6
+
+
+def test_run_all_zoom_Anish():
+    folder_path = example_path("test_NikonEclipse_Evolve512_10X")
+    time_all, action_all = ia.run_all(folder_path)
     assert len(time_all) == 4
     assert len(action_all) == 4
-
 
 # def test_line_param():
 #     array = np.zeros((50, 50))

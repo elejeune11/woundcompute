@@ -662,3 +662,24 @@ def test_make_tissue_mask_robust_brightfield():
     tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
     tissue_contour = seg.mask_to_contour(tissue_mask_robust)
     assert tissue_contour.shape[0] > 100
+
+
+def test_get_pillar_mask_list():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    assert len(pillar_mask_list) == 4
+    for kk in range(0, 4):
+        assert np.sum(pillar_mask_list[kk]) > 10
+        assert np.min(pillar_mask_list[kk]) == 0
+        assert np.max(pillar_mask_list[kk]) == 1
+    # test an example where only 3 pillars are picked up
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[-1]]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    assert len(pillar_mask_list) == 3

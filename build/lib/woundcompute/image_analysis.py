@@ -10,6 +10,7 @@ from typing import List
 import yaml
 from woundcompute import segmentation as seg
 from woundcompute import compute_values as com
+from woundcompute import texture_tracking as tt
 
 
 def hello_wound_compute() -> str:
@@ -703,6 +704,41 @@ def run_bf_seg_vs_fl_seg_visualize(
     return (path_list, gif_path)
 
 
+def run_texture_tracking(input_path: Path, output_path: Path, threshold_function_idx: int):
+    """Given input and output information. Will run texture tracking."""
+    # read all tiff images from input path
+    img_list = read_all_tiff(input_path)
+    # segment the first image to get a frame 0 mask
+    img_list_first = [img_list[0]]
+    threshold_list = seg.threshold_all(img_list_first, threshold_function_idx)
+    frame_0_mask = threshold_list[0]
+    # segmenment wound contouor
+    _, wound_mask_list, _ = seg.mask_all(threshold_list, threshold_function_idx)
+    wound_mask = wound_mask_list[0]
+    wound_contour = seg.mask_to_contour(wound_mask)
+    # include reverse tracking
+    include_reverse = True
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    # save tracking results
+    path_tx = output_path.joinpath("tracker_x_forward.txt").resolve()
+    np.savetxt(str(path_tx), tracker_x_forward)
+    path_ty = output_path.joinpath("tracker_y_forward.txt").resolve()
+    np.savetxt(str(path_ty), tracker_y_forward)
+    path_txr = output_path.joinpath("tracker_x_reverse_forward.txt").resolve()
+    np.savetxt(str(path_txr), tracker_x_reverse_forward)
+    path_tyr = output_path.joinpath("tracker_y_reverse_forward.txt").resolve()
+    np.savetxt(str(path_tyr), tracker_y_reverse_forward)
+    return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr
+
+
+# def run_texture_tracking_visualize(
+#     output_path: Path,
+#     img_list: List,
+#     contour_list_bf: List,
+#     track):
+#     return
+
+
 def run_all(folder_path: Path) -> List:
     """Given a folder path. Will read input, run code, generate all outputs."""
     time_all = []
@@ -764,4 +800,12 @@ def run_all(folder_path: Path) -> List:
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
         action_all.append("visualized brightfield and fluorescent")
+    if input_dict["track_ph1"] is True:
+        input_path = input_path_dict["ph1_images_path"]
+        output_path = output_path_dict["track_ph1_path"]
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("run texture tracking")
+    # if input_dict["track_ph1_visualize"] is True:
     return time_all, action_all

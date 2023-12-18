@@ -5,6 +5,7 @@ from skimage.filters import threshold_otsu, gabor
 from skimage.filters import threshold_multiotsu
 from skimage.measure import label, regionprops
 from typing import List, Union
+from woundcompute import compute_values as com
 
 
 def apply_median_filter(array: np.ndarray, filter_size: int) -> np.ndarray:
@@ -82,6 +83,23 @@ def get_roundest_regions(region_props: List, num_regions: int = 3) -> List:
     regions_list = []
     for kk in range(0, num_to_return):
         idx = ranked[kk]
+        regions_list.append(region_props[idx])
+    return regions_list
+
+
+def get_longest_regions(region_props: List, num_regions: int = 3) -> List:
+    """Given a list of region properties. Will return the num_regions roundest regions.
+    If there are fewer than num_regions regions, will return all regions.
+    For eccentricity, 0 = circle, 1 = more elliptical"""
+    eccentricity_list = []
+    for region in region_props:
+        eccentricity = region.eccentricity
+        eccentricity_list.append(eccentricity)
+    ranked = np.argsort(eccentricity_list)
+    num_to_return = np.min([len(ranked), num_regions])
+    regions_list = []
+    for kk in range(0, num_to_return):
+        idx = ranked[len(ranked) - kk - 1]
         regions_list.append(region_props[idx])
     return regions_list
 
@@ -380,22 +398,22 @@ def fill_tissue_mask_reconstruction(mask: np.ndarray) -> np.ndarray:
     return mask_filled
 
 
-def insert_borders(mask: np.ndarray, border: int = 10) -> np.ndarray:
+def insert_borders(mask: np.ndarray, border: int = 10, border_val: int = 0) -> np.ndarray:
     """Given a mask. Will make the borders around it 0."""
-    mask[0:border, :] = 0
-    mask[-border:, :] = 0
-    mask[:, 0:border] = 0
-    mask[:, -border:] = 0
+    mask[0:border, :] = border_val
+    mask[-border:, :] = border_val
+    mask[:, 0:border] = border_val
+    mask[:, -border:] = border_val
     return mask
 
 
-def make_tissue_mask_robust(tissue_mask: np.ndarray, wound_mask: np.ndarray) -> np.ndarray:
+def make_tissue_mask_robust(tissue_mask: np.ndarray, wound_mask: np.ndarray, border_val: int = 10) -> np.ndarray:
     """Given a tissue mask and wound mask. Will fill holes in the tissue mask and make it suitable
     for computing the tissue contour etc."""
     tissue_mask_filled_1 = tissue_mask + wound_mask
     tissue_mask_filled_2 = fill_tissue_mask_reconstruction(tissue_mask_filled_1)
     tissue_mask_filled_3 = apply_gaussian_filter(tissue_mask_filled_2, 1) > 0
-    tissue_mask_borders = insert_borders(tissue_mask_filled_3)
+    tissue_mask_borders = insert_borders(tissue_mask_filled_3, border_val)
     # return largest connected component -- TODO: make sure this doesn't mess up other tests
     regions = get_region_props(tissue_mask_borders)
     largest_regions = get_largest_regions(regions, 1)
@@ -423,3 +441,63 @@ def select_threshold_function(
         return 5
     else:
         raise ValueError("specified version is not supported")
+
+
+# def get_pillar_mask_list(array: np.ndarray, selection_idx: int):
+#     # given the tissue mask, will create pillar masks
+#     tissue_mask, wound_mask, wound_region = isolate_masks(array, selection_idx)
+#     tissue_mask_filled = tissue_mask + wound_mask
+#     tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
+#     # isolate pillars
+#     tmf_inverted = invert_mask(tissue_mask_filled)
+#     region_props = get_region_props(tmf_inverted)
+#     num_regions = 6
+#     regions_list = get_largest_regions(region_props, num_regions)
+#     # get box and rotation of robust tissue mask
+#     # 4 corner points are ordered clockwise starting from the point with the highest y (tiebreaker: rightmost)
+#     # box is 4 (points) x 2 (dims) numpy array
+#     box = com.mask_to_box(tissue_mask_robust)
+#     selected_regions = []
+#     for kk in range(0, 4):
+#         loc_0 = box[kk, 0]
+#         loc_1 = box[kk, 1]
+#         region = get_closest_region(regions_list, loc_0, loc_1)
+#         selected_regions.append(region)
+#     pillar_mask_list = []
+#     for kk in range(0, 4):
+#         coords_list = region_to_coords([selected_regions[kk]])
+#         mask = coords_to_mask(coords_list, tissue_mask)
+#         pillar_mask_list.append(mask)
+#     return pillar_mask_list
+
+def get_pillar_mask_list(img: np.ndarray, selection_idx: int):
+    # get tissue
+    thresh_img_tissue = threshold_array(img, selection_idx)
+    tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, selection_idx)
+    tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
+    # pillars tend to be dark circles with bright inside
+    img_thresh = apply_otsu_thresh(img)
+    region_props = get_region_props(img_thresh)
+    # remove larger regions e.g., background
+    regions_list = get_regions_not_touching_bounds(region_props, img.shape)
+    regions_list = get_largest_regions(regions_list, 20)
+    regions_list = get_roundest_regions(regions_list, 6)
+    box = com.mask_to_box(tissue_mask_robust)
+    selected_regions = []
+    for kk in range(0, 4):
+        loc_0 = box[kk, 0]
+        loc_1 = box[kk, 1]
+        region = get_closest_region(regions_list, loc_0, loc_1)
+        selected_regions.append(region)
+    pillar_mask_list = []
+    for kk in range(0, 4):
+        coords_list = region_to_coords([selected_regions[kk]])
+        mask = coords_to_mask(coords_list, tissue_mask)
+        if np.sum(mask) < (img.shape[0] * 0.05) ** 2.0:
+            continue
+        # dilate mask a little bit to get more edges in there
+        filter_size = 2
+        mask = apply_gaussian_filter(mask, filter_size)
+        mask = mask > 0
+        pillar_mask_list.append(mask)
+    return pillar_mask_list
