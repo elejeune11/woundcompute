@@ -243,7 +243,7 @@ def get_tissue_width(tissue_mask_robust: np.ndarray, width_buffer: int = 5) -> f
 
 def compute_distance_multi_point(coords_1: np.ndarray, coords_2: np.ndarray):
     """Find the shortest distance between points in two arrays.
-    Each array is formatted idx_0 points, idx_2 points."""
+    Each array is formatted idx_0 points, idx_1 points."""
     arr = distance.cdist(coords_1, coords_2, 'euclidean')
     ind = np.unravel_index(np.argmin(arr, axis=None), arr.shape)
     coords_1_idx = ind[0]
@@ -252,8 +252,9 @@ def compute_distance_multi_point(coords_1: np.ndarray, coords_2: np.ndarray):
 
 
 def get_tissue_width_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray):
-    border = 1
+    border = 5
     tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask, border)
+    border = 1
     tissue_mask_robust = seg.insert_borders(tissue_mask_robust, border, 1)
     background_mask = tissue_mask_robust < 0.5
     border = 10

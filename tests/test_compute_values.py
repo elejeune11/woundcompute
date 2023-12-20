@@ -3,6 +3,7 @@ import math
 import numpy as np
 from pathlib import Path
 import pytest
+from scipy.spatial import distance
 from skimage import io
 from skimage import morphology
 from woundcompute import image_analysis as ia
@@ -65,6 +66,20 @@ def test_compute_distance():
     assert np.isclose(dist, 10)
 
 
+def test_compute_distance_multi_point():
+    coords_1 = np.random.random((10, 2))
+    coords_2 = np.random.random((5, 2))
+    coords_1_idx, coords_2_idx = com.compute_distance_multi_point(coords_1, coords_2)
+    arr = distance.cdist(coords_1, coords_2, 'euclidean')
+    min_known = np.min(arr)
+    x1 = coords_1[coords_1_idx, 0]
+    x2 = coords_2[coords_2_idx, 0]
+    y1 = coords_1[coords_1_idx, 1]
+    y2 = coords_2[coords_2_idx, 1]
+    min_found = ((x1 - x2) ** 2.0 + (y1 - y2) ** 2.0) ** 0.5
+    assert np.isclose(min_known, min_found)
+
+
 def test_compute_unit_vector():
     x1 = 0
     x2 = 10
@@ -114,7 +129,6 @@ def test_mask_to_box():
     assert np.isclose(np.max(box[:, 0]), 74, atol=5)
     assert np.isclose(np.min(box[:, 1]), 45, atol=5)
     assert np.isclose(np.max(box[:, 1]), 54, atol=5)
-
 
 
 def test_axis_from_mask_artifical():
@@ -274,6 +288,16 @@ def test_get_tissue_width():
     assert np.isclose(pt2_1_orig, 55, 1.0)
     assert np.isclose(pt1_0_orig, 40, 1.0)
     assert np.isclose(pt2_0_orig, 60, 1.0)
+
+
+def test_get_tissue_width_zoom():
+    tissue_mask = np.zeros((500, 500))
+    tissue_mask[50:450, 0:500] = 1
+    wound_mask = np.zeros((500, 500))
+    tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = com.get_tissue_width_zoom(tissue_mask, wound_mask)
+    assert np.isclose(tissue_width, 400, 20)
+    dist = ((pt1_0_orig - pt2_0_orig) ** 2.0 + (pt1_1_orig - pt2_1_orig) ** 2.0) ** 0.5
+    assert np.isclose(tissue_width, dist, 5)
 
 
 def test_get_tissue_width_rotated():
