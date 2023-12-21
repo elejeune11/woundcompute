@@ -69,13 +69,24 @@ def test_compute_distance():
 def test_compute_distance_multi_point():
     coords_1 = np.random.random((10, 2))
     coords_2 = np.random.random((5, 2))
-    coords_1_idx, coords_2_idx = com.compute_distance_multi_point(coords_1, coords_2)
+    pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = com.compute_distance_multi_point(coords_1, coords_2)
     arr = distance.cdist(coords_1, coords_2, 'euclidean')
     min_known = np.min(arr)
-    x1 = coords_1[coords_1_idx, 0]
-    x2 = coords_2[coords_2_idx, 0]
-    y1 = coords_1[coords_1_idx, 1]
-    y2 = coords_2[coords_2_idx, 1]
+    x1 = pt1_0_orig
+    x2 = pt2_0_orig
+    y1 = pt1_1_orig
+    y2 = pt2_1_orig
+    min_found = ((x1 - x2) ** 2.0 + (y1 - y2) ** 2.0) ** 0.5
+    assert np.isclose(min_known, min_found)
+    coords_1 = np.ones((2895, 2))
+    coords_2 = np.zeros((5567, 2))
+    pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = com.compute_distance_multi_point(coords_1, coords_2)
+    arr = distance.cdist(coords_1, coords_2, 'euclidean')
+    min_known = np.min(arr)
+    x1 = pt1_0_orig
+    x2 = pt2_0_orig
+    y1 = pt1_1_orig
+    y2 = pt2_1_orig
     min_found = ((x1 - x2) ** 2.0 + (y1 - y2) ** 2.0) ** 0.5
     assert np.isclose(min_known, min_found)
 

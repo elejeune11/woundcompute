@@ -244,11 +244,23 @@ def get_tissue_width(tissue_mask_robust: np.ndarray, width_buffer: int = 5) -> f
 def compute_distance_multi_point(coords_1: np.ndarray, coords_2: np.ndarray):
     """Find the shortest distance between points in two arrays.
     Each array is formatted idx_0 points, idx_1 points."""
+    # maximum array size -- downsample
+    upper_lim = 1000
+    if coords_1.shape[0] > upper_lim:
+        val = int(coords_1.shape[0] / upper_lim)
+        coords_1 = coords_1[::val, :]
+    if coords_2.shape[0] > upper_lim:
+        val = int(coords_2.shape[0] / upper_lim)
+        coords_2 = coords_2[::val, :]
     arr = distance.cdist(coords_1, coords_2, 'euclidean')
     ind = np.unravel_index(np.argmin(arr, axis=None), arr.shape)
     coords_1_idx = ind[0]
     coords_2_idx = ind[1]
-    return coords_1_idx, coords_2_idx
+    pt1_0_orig = coords_1[coords_1_idx, 1]
+    pt1_1_orig = coords_1[coords_1_idx, 0]
+    pt2_0_orig = coords_2[coords_2_idx, 1]
+    pt2_1_orig = coords_2[coords_2_idx, 0]
+    return pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig
 
 
 def get_tissue_width_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray):
@@ -264,11 +276,7 @@ def get_tissue_width_zoom(tissue_mask: np.ndarray, wound_mask: np.ndarray):
     regions_list = seg.get_longest_regions(region_props, num_regions)
     coords_1 = regions_list[0].coords
     coords_2 = regions_list[1].coords
-    coords_1_idx, coords_2_idx = compute_distance_multi_point(coords_1, coords_2)
-    pt1_0_orig = coords_1[coords_1_idx, 1]
-    pt1_1_orig = coords_1[coords_1_idx, 0]
-    pt2_0_orig = coords_2[coords_2_idx, 1]
-    pt2_1_orig = coords_2[coords_2_idx, 0]
+    pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = compute_distance_multi_point(coords_1, coords_2)
     tissue_width = compute_distance(pt1_0_orig, pt2_0_orig, pt1_1_orig, pt2_1_orig)
     return tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig
 
