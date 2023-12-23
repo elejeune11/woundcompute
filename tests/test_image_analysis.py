@@ -252,6 +252,7 @@ def test_yml_to_dict():
     assert db["track_bf_visualize"] is False
     assert db["bf_seg_with_fl_seg_visualize"] is False
     assert db["bf_track_with_fl_seg_visualize"] is False
+    assert db["track_pillars_ph1"] is False
 
 
 def test_input_info_to_input_dict():
@@ -269,6 +270,7 @@ def test_input_info_to_input_dict():
     assert db["track_bf_visualize"] is False
     assert db["bf_seg_with_fl_seg_visualize"] is False
     assert db["bf_track_with_fl_seg_visualize"] is False
+    assert db["track_pillars_ph1"] is False
 
 
 def test_input_info_to_input_paths():
@@ -699,6 +701,17 @@ def test_run_texture_tracking():
     assert len(wound_masks_all) == tracker_x_forward.shape[1]
 
 
+def test_run_texture_tracking_pillars():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "pillar_track_ph1")
+    threshold_function_idx = 4
+    avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(input_path, output_path, threshold_function_idx)
+    assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
+    assert path_disp_x.is_file()
+    assert path_disp_y.is_file()
+
+
 def test_show_and_save_tracking():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     input_path = folder_path.joinpath("ph1_images").resolve()
@@ -764,8 +777,8 @@ def test_run_texture_tracking_visualize():
 def test_run_all_tracking():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     time_all, action_all = ia.run_all(folder_path)
-    assert len(time_all) == 6
-    assert len(action_all) == 6
+    assert len(time_all) == 7
+    assert len(action_all) == 7
 
 
 def test_run_all_zoom_Anish():

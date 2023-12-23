@@ -193,7 +193,8 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             "bf_track_with_fl_seg_visualize",
             "ph1_seg_with_fl_seg_visualize",
             "ph1_track_with_fl_seg_visualize",
-            "zoom_type"
+            "zoom_type",
+            "track_pillars_ph1"
         )
 
         # has_required_keys = all(tuple(map(lambda x: db.get(x) != None, required_keys)))
@@ -329,6 +330,11 @@ def input_info_to_output_paths(folder_path: Path, input_dict: dict) -> dict:
         path_dict["ph1_track_with_fl_seg_visualize_path"] = ph1_track_with_fl_seg_visualize_path
     else:
         path_dict["ph1_track_with_fl_seg_visualize_path"] = None
+    if input_dict["track_pillars_ph1"] is True:
+        track_pillars_ph1_path = create_folder(folder_path, "track_pillars_ph1")
+        path_dict["track_pillars_ph1_path"] = track_pillars_ph1_path
+    else:
+        path_dict["track_pillars_ph1_path"] = None
     return path_dict
 
 
@@ -739,6 +745,18 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks
 
 
+def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_function_idx: int):
+    img_list = read_all_tiff(input_path)
+    first_img = img_list[0]
+    pillar_mask_list = seg.get_pillar_mask_list(first_img, threshold_function_idx)
+    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list)
+    path_disp_x = output_path.joinpath("pillar_tracker_x.txt").resolve()
+    path_disp_y = output_path.joinpath("pillar_tracker_y.txt").resolve()
+    np.savetxt(str(path_disp_x), avg_disp_all_x)
+    np.savetxt(str(path_disp_y), avg_disp_all_y)
+    return avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y
+
+
 def show_and_save_tracking(
     img: np.ndarray,
     contour: np.ndarray,
@@ -909,5 +927,13 @@ def run_all(folder_path: Path) -> List:
         is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
         _ = run_texture_tracking_visualize(output_path, img_list_ph1, contour_list_ph1, is_broken_list_ph1, is_closed_list_ph1, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
         time_all.append(time.time())
-        action_all.append("run texture tracking")
+        action_all.append("visualized texture tracking")
+    if input_dict["track_pillars_ph1"] is True:
+        output_path = output_path_dict["track_pillars_ph1_path"]
+        input_path = input_path_dict["ph1_images_path"]
+        img_list_ph1 = read_all_tiff(input_path)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        _, _, _, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("run pilalr texture tracking")
     return time_all, action_all
