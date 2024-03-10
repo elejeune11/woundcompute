@@ -462,11 +462,16 @@ def test_tissue_parameters_anish():
 
 def test_check_broken_tissue_all():
     tissue_mask_list = []
+    wound_mask_list = []
     for kk in range(0, 3):
         tissue_mask = np.zeros((10, 10))
         tissue_mask[3:7, 3:7] = 1
         tissue_mask_list.append(tissue_mask)
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
+        wound_mask_list.append(np.zeros((10, 10)))
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, wound_mask_list)
+    for bb in is_broken_list:
+        assert bb is False
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, wound_mask_list, False, 2)
     for bb in is_broken_list:
         assert bb is False
 
@@ -488,11 +493,99 @@ def test_is_broken_example():
     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, True)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, [], True)
     assert is_broken_list[0] is False
     assert is_broken_list[1] is True
     assert is_broken_list[2] is True
     assert is_broken_list[3] is True
+
+
+def test_binary_mask_IOU():
+    mask1 = np.zeros((100, 100))
+    mask2 = np.ones((100, 100))
+    iou = com.binary_mask_IOU(mask1, mask2)
+    assert iou == 0
+    mask1 = np.ones((100, 100))
+    mask2 = np.ones((100, 100))
+    iou = com.binary_mask_IOU(mask1, mask2)
+    assert iou == 1
+    mask1 = np.ones((100, 100))
+    mask2 = np.ones((100, 100))
+    mask2[0:50, :] = 0
+    iou = com.binary_mask_IOU(mask1, mask2)
+    assert iou > 0 and iou < 1
+
+
+def test_check_broken_tissue_zoom():
+    is_broken_list = []
+    folder_path = example_path("test_zoom_is_broken")
+    input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+    for kk in range(0, int(len(img_list) / 2)):
+        ix_orig = kk * 2
+        ix_consider = kk * 2 + 1
+        tissue_mask_orig = tissue_mask_list[ix_orig]
+        wound_mask_orig = wound_mask_list[ix_orig]
+        is_broken = com.check_broken_tissue_zoom(tissue_mask_list[ix_consider], wound_mask_list[ix_consider], tissue_mask_orig, wound_mask_orig)
+        is_broken_list.append(is_broken)
+    ground_truth = [True, False, True, False]
+    for kk in range(0, len(ground_truth)):
+        assert ground_truth[kk] is is_broken_list[kk]
+
+
+# version that is more for debugging method than for testing 
+# def test_check_broken_tissue_zoom():
+#     import matplotlib.pyplot as plt
+#     is_broken_list = []
+#     iou_list = []
+#     folder_path = example_path("test_zoom_orig_compare")
+#     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+#     folder_path = input_path_dict["ph1_images_path"]
+#     img_list = ia.read_all_tiff(folder_path)
+#     path_list = ia.image_folder_to_path_list(folder_path)
+#     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+#     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+#     tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+#     for kk in range(0, len(img_list)):
+#         ix_orig = kk - kk % 3
+#         tissue_mask_orig = tissue_mask_list[ix_orig]
+#         wound_mask_orig = wound_mask_list[ix_orig]
+#         ti = str(path_list[kk]).split("/")[-1]
+#         is_broken, iou_masks = com.check_broken_tissue_zoom(tissue_mask_list[kk], wound_mask_list[kk], tissue_mask_orig, wound_mask_orig)
+#         is_broken_list.append(is_broken)
+#         print(ti, is_broken)
+#         plt.figure()
+#         plt.imshow(tissue_mask_list[kk])
+#         plt.title(ti + "broken:" + str(is_broken) + " iou: %0.2f" % (iou_masks))
+#         iou_list.append(iou_masks)
+#     aa = 44
+
+
+# def test_check_broken_tissue_zoom():
+#     import matplotlib.pyplot as plt
+#     folder_path = example_path("test_zoom")
+#     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+#     folder_path = input_path_dict["ph1_images_path"]
+#     img_list = ia.read_all_tiff(folder_path)
+#     path_list = ia.image_folder_to_path_list(folder_path)
+#     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+#     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+#     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+#     # check individual tissues
+#     is_broken_list = []
+#     for kk in range(0, len(img_list)):
+#         ti = str(path_list[kk]).split("/")[-1]
+#         is_broken = com.check_broken_tissue_zoom(tissue_mask_list[kk])
+#         is_broken_list.append(is_broken)
+#         print(ti, is_broken)
+#         plt.figure()
+#         plt.imshow(tissue_mask_list[kk])
+#         plt.title(ti + "broken:" + str(is_broken))
+#     aa = 44
 
 
 def test_is_broken_anish():

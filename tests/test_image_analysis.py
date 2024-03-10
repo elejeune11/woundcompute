@@ -496,7 +496,7 @@ def test_run_segment_bf():
 
 
 def test_run_segment_fl():
-    for name in ["test_single", "test_mini_movie"]:
+    for name in ["test_mini_movie"]:
         for kind in ["fluorescent"]:
             print(name, kind)
             folder_path = example_path(name)

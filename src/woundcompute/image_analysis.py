@@ -84,14 +84,14 @@ def show_and_save_contour_and_width(
     yt = 7.0 * img_array.shape[0] / 8.0
     if is_broken:
         plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
-    else:
-        if points is not None:
-            plt.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
-        if is_closed:
-            plt.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
-        else:
-            if contour is not None:
-                plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+    # else:
+    if points is not None:
+        plt.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
+    if is_closed:
+        plt.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
+    # else:
+    if contour is not None:
+        plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
     plt.title(title)
     plt.axis('off')
     plt.tight_layout()
@@ -630,7 +630,7 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     tissue_path = save_list(output_path, "tissue_parameters_vs_frame", tissue_parameters_list)
     # check if the tissue is broken
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, True)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # check if the wound is closed
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)

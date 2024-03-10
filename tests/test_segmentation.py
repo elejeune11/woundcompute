@@ -481,6 +481,31 @@ def test_isolate_masks_brightfield():
     assert np.sum(wound_mask + tissue_mask <= 1) == wound_mask.shape[0] * wound_mask.shape[1]
 
 
+# def test_isolate_masks_zoom_examples():
+#     folder_path = example_path("test_zoom")
+#     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+#     folder_path = input_path_dict["ph1_images_path"]
+#     img_list = ia.read_all_tiff(folder_path)
+#     path_list = ia.image_folder_to_path_list(folder_path)
+#     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+#     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+#     tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+#     import matplotlib.pyplot as plt
+#     for kk in range(0, len(img_list)):
+#         fig, ax = plt.subplots(1, 3)
+#         ax[0].imshow(img_list[kk])
+#         ax[1].imshow(tissue_mask_list[kk])
+#         ax[2].imshow(wound_mask_list[kk])
+#         ti = str(path_list[kk]).split("/")[-1]
+#         ax[0].set_title(ti)
+#         ax[1].set_title(ti)
+#     plt.figure()
+#     plt.imshow(img_list[8])
+#     plt.figure()
+#     plt.imshow(img_list[13])
+#     aa = 44
+
+
 def test_isolate_masks_no_wound():
     thresh_img = np.ones((100, 100))
     thresh_img[30:50, :] = 0
