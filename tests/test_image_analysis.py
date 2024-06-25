@@ -617,7 +617,15 @@ def test_load_contour_coords():
     folder_path = example_path("test_ph1_mini_movie")
     _, _ = ia.run_all(folder_path)
     contour_coords_list = ia.load_contour_coords(folder_path)
-    assert len(contour_coords_list)
+    assert len(contour_coords_list) > 0
+    assert contour_coords_list[0].shape[0] > 0
+
+
+def test_load_contour_coords_none():
+    folder_path = example_path("test_zoom")
+    contour_coords_list = ia.load_contour_coords(folder_path)
+    for contour in contour_coords_list:
+        assert contour is None
 
 
 def test_run_all_ph1_broken():
@@ -672,8 +680,8 @@ def test_run_all_ph1_many_examples():
 def test_run_all_ph1_anish():
     folder_path = example_path("test_ph1_movie_mini_Anish")
     time_all, action_all = ia.run_all(folder_path)
-    assert len(time_all) == 4
-    assert len(action_all) == 4
+    assert len(time_all) == 5
+    assert len(action_all) == 5
 
 
 def test_run_all_ph1_many_examples_anish():
@@ -732,6 +740,13 @@ def test_show_and_save_tracking():
     frame = len(img_list) - 1
     save_path = output_file("test_phi_movie_mini_Anish_tracking", "test_save_tracking_title.png")
     title = "example_anish_example"
+    ia.show_and_save_tracking(img, contour, is_broken, is_closed, frame, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, save_path, title)
+    assert save_path.is_file()
+    is_broken = True
+    ia.show_and_save_tracking(img, contour, is_broken, is_closed, frame, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, save_path, title)
+    assert save_path.is_file()
+    is_broken = False
+    is_closed = True
     ia.show_and_save_tracking(img, contour, is_broken, is_closed, frame, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, save_path, title)
     assert save_path.is_file()
 

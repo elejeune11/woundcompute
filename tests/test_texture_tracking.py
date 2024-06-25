@@ -248,7 +248,8 @@ def test_perform_pillar_tracking():
     # img_list = img_list[0:5]
     threshold_function_idx = 4
     pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
-    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list)
+    version = 1
+    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, version)
     assert avg_disp_all_x.shape[0] == len(img_list)
     assert avg_disp_all_y.shape[0] == len(img_list)
     assert avg_disp_all_x.shape[1] == 4
@@ -267,3 +268,76 @@ def test_track_all_steps_pillar():
     tracker_x, tracker_y = tt.track_all_steps(img_list_uint8, pillar_mask_list[0], order_list, True)
     assert tracker_x.shape[1] == len(img_list_orig)
     assert tracker_y.shape[1] == len(img_list_orig)
+
+
+def test_template_match_tracking():
+    frame = (np.random.random((100, 200)) * 255).astype("uint8")
+    x0 = 10
+    y0 = 20
+    xf = 15
+    yf = 27
+    template = frame[y0:yf, x0:xf]
+    coords, center_pt = tt.template_match_tracking(frame, template)
+    assert coords[0] == x0
+    assert coords[1] == y0
+    assert coords[2] == xf
+    assert coords[3] == yf
+    assert np.isclose(center_pt[0], x0 + (xf - x0) / 2.0)
+    assert np.isclose(center_pt[1], y0 + (yf - y0) / 2.0)
+
+
+def add_rect(arr, cent_r, cent_c, buffer):
+    arr[cent_r-buffer:cent_r+buffer, cent_c-buffer:cent_c+buffer] = 1
+    return arr.astype("uint8")
+
+
+def test_template_track_all_steps():
+    max_r = 100
+    max_c = 200
+    cent_r = 30
+    cent_c = 50
+    buffer = 5
+    arr = np.zeros((max_r, max_c))
+    pillar_mask = add_rect(arr, cent_r, cent_c, buffer)
+    img_list = []
+    order_list = []
+    cent_r_list = [30, 40, 50, 33, 45]
+    cent_c_list = [50, 20, 100, 56, 75]
+    for kk in range(0, len(cent_r_list)):
+        arr = np.zeros((max_r, max_c))
+        img = add_rect(arr, cent_r_list[kk], cent_c_list[kk], buffer)
+        img_list.append(img)
+        order_list.append(kk)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list)
+    assert np.allclose(tracker_x, np.asarray(cent_c_list))
+    assert np.allclose(tracker_y, np.asarray(cent_r_list))
+    # test w/ additional shape outside region surrounding mask
+    img_list = []
+    order_list = []
+    cent_r_list = [30, 40, 50, 33, 45]
+    cent_c_list = [50, 20, 100, 56, 75]
+    for kk in range(0, len(cent_r_list)):
+        arr = np.zeros((max_r, max_c))
+        img = add_rect(arr, cent_r_list[kk], cent_c_list[kk], buffer)
+        img = add_rect(img, 90, 150, buffer)
+        img_list.append(img)
+        order_list.append(kk)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list)
+    assert np.allclose(tracker_x, np.asarray(cent_c_list))
+    assert np.allclose(tracker_y, np.asarray(cent_r_list))
+
+
+def test_perform_pillar_tracking_v2():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = img_list[0:5]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    version = 2
+    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, version)
+    assert avg_disp_all_x.shape[0] == len(img_list)
+    assert avg_disp_all_y.shape[0] == len(img_list)
+    assert avg_disp_all_x.shape[1] == 4
+    assert avg_disp_all_y.shape[1] == 4

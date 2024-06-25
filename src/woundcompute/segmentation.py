@@ -1,11 +1,29 @@
+import cv2
 import numpy as np
 from scipy import ndimage
+from skimage import exposure, img_as_ubyte
+from skimage.segmentation import clear_border
 from skimage import measure, morphology
-from skimage.filters import threshold_otsu, gabor
-from skimage.filters import threshold_multiotsu
+from skimage.filters import gabor, threshold_otsu, threshold_multiotsu, rank
 from skimage.measure import label, regionprops
 from typing import List, Union
 from woundcompute import compute_values as com
+
+
+def uint16_to_uint8(img_16: np.ndarray) -> np.ndarray:
+    '''Given a uint16 image. Will normalize + rescale and convert to uint8.'''
+    img_8 = img_as_ubyte(exposure.rescale_intensity(img_16))
+    return img_8
+
+
+def thresh_img_local(img: np.ndarray, radius: int = 135) -> np.ndarray:
+    '''Given an uint16 image. Will return a binary image based on local otsu thresholding.'''
+    img = img.astype("uint16")
+    selem = morphology.disk(radius)
+    img = uint16_to_uint8(img)
+    local_otsu = rank.otsu(img, selem)
+    binary_img = img > local_otsu
+    return binary_img
 
 
 def apply_median_filter(array: np.ndarray, filter_size: int) -> np.ndarray:
@@ -470,13 +488,17 @@ def select_threshold_function(
 #         pillar_mask_list.append(mask)
 #     return pillar_mask_list
 
-def get_pillar_mask_list(img: np.ndarray, selection_idx: int):
+def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int = 1):
     # get tissue
     thresh_img_tissue = threshold_array(img, selection_idx)
     tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, selection_idx)
     tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
     # pillars tend to be dark circles with bright inside
-    img_thresh = apply_otsu_thresh(img)
+    # img_thresh = apply_otsu_thresh(img)
+    if mask_seg_type == 1:
+        img_thresh = thresh_img_local(img)
+    else:
+        img_thresh = apply_otsu_thresh(img)
     region_props = get_region_props(img_thresh)
     # remove larger regions e.g., background
     regions_list = get_regions_not_touching_bounds(region_props, img.shape)
@@ -501,3 +523,47 @@ def get_pillar_mask_list(img: np.ndarray, selection_idx: int):
         mask = mask > 0
         pillar_mask_list.append(mask)
     return pillar_mask_list
+
+
+# def mask_quadrants_img(frame: np.ndarray, quadrant: int) -> np.ndarray:
+#     '''Given frame and quadrant number, mask all other quadrants except the given quadrant.'''
+#     frame_h, frame_w = frame.shape
+#     mask = np.zeros(frame.shape, dtype=np.uint8)
+#     if quadrant == 0:
+#         mask_h = int((frame_h//2) * 1.2)
+#         mask_w = int((frame_w//2) * 1.2)
+#         mask[:mask_h, :mask_w] = 255
+#     elif quadrant == 1:
+#         mask_h = int((frame_h//2) * 0.8)
+#         mask_w = int((frame_w//2) * 1.2)
+#         mask[mask_h:, :mask_w] = 255
+#     elif quadrant == 2:
+#         mask_h = int((frame_h//2) * 1.2)
+#         mask_w = int((frame_w//2) * 0.8)
+#         mask[:mask_h, mask_w:] = 255
+#     elif quadrant == 3:
+#         mask_h = int((frame_h//2) * 0.8)
+#         mask_w = int((frame_w//2) * 0.8)
+#         mask[mask_h:, mask_w:] = 255
+#     masked_image = cv2.bitwise_and(frame, frame, mask=mask)
+#     return masked_image
+def pillar_mask_to_box(img: np.ndarray, pillar_mask: np.ndarray, buffer: int):
+    r_min = np.max([0, np.min(np.argwhere(pillar_mask > 0)[:, 0]) - buffer])
+    r_max = np.min([img.shape[0], np.max(np.argwhere(pillar_mask > 0)[:, 0]) + buffer + 1])
+    c_min = np.max([0, np.min(np.argwhere(pillar_mask > 0)[:, 1]) - buffer])
+    c_max = np.min([img.shape[1], np.max(np.argwhere(pillar_mask > 0)[:, 1]) + buffer + 1])
+    return r_min, r_max, c_min, c_max
+
+
+def mask_img_for_pillar_track(img: np.ndarray, pillar_mask: np.ndarray, buffer: int = 50) -> np.ndarray:
+    r_min, r_max, c_min, c_max = pillar_mask_to_box(img, pillar_mask, buffer)
+    mask = np.zeros(img.shape)
+    mask[r_min:r_max, c_min:c_max] = 1
+    img_mask = img * mask
+    return img_mask.astype("uint8")
+
+
+def mask_to_template(img: np.ndarray, pillar_mask: np.ndarray, buffer: int = 2):
+    r_min, r_max, c_min, c_max = pillar_mask_to_box(img, pillar_mask, buffer)
+    template = img[r_min:r_max, c_min:c_max]
+    return template

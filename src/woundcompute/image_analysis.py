@@ -779,7 +779,8 @@ def show_and_save_tracking(
         plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
     else:
         if is_closed:
-            plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+            if contour is not None:
+                plt.plot(contour[:, 1], contour[:, 0], 'k', linewidth=2.0, antialiased=True)
         else:
             if contour is not None:
                 plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
@@ -842,11 +843,14 @@ def run_texture_tracking_visualize(
 
 
 def load_contour_coords(folder_path: Path):
-    file_list = glob.glob(str(folder_path) + "/segment_ph1/contour_coords*.npy")
-    file_list = np.sort(file_list)
+    num_files = len(glob.glob(str(folder_path) + "/ph1_images/*.TIF")) + len(glob.glob(str(folder_path) + "/ph1_images/*.tiff"))
     contour_coords_list = []
-    for kk in range(0, len(file_list)):
-        contour_coords_list.append(np.load(str(folder_path) + "/segment_ph1/contour_coords_%05d.npy" % (kk)))
+    for kk in range(0, num_files):
+        fname = str(folder_path) + "/segment_ph1/contour_coords_%05d.npy" % (kk)
+        if len(glob.glob(fname)) > 0:
+            contour_coords_list.append(np.load(fname))
+        else:
+            contour_coords_list.append(None)
     return contour_coords_list
 
 

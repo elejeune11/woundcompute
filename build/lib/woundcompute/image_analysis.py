@@ -84,14 +84,14 @@ def show_and_save_contour_and_width(
     yt = 7.0 * img_array.shape[0] / 8.0
     if is_broken:
         plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
-    else:
-        if points is not None:
-            plt.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
-        if is_closed:
-            plt.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
-        else:
-            if contour is not None:
-                plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+    # else:
+    if points is not None:
+        plt.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
+    if is_closed:
+        plt.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
+    # else:
+    if contour is not None:
+        plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
     plt.title(title)
     plt.axis('off')
     plt.tight_layout()
@@ -193,7 +193,8 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             "bf_track_with_fl_seg_visualize",
             "ph1_seg_with_fl_seg_visualize",
             "ph1_track_with_fl_seg_visualize",
-            "zoom_type"
+            "zoom_type",
+            "track_pillars_ph1"
         )
 
         # has_required_keys = all(tuple(map(lambda x: db.get(x) != None, required_keys)))
@@ -247,6 +248,8 @@ def input_info_to_input_paths(folder_path: Path) -> dict:
 def image_folder_to_path_list(folder_path: Path) -> List:
     """Given a folder path. Will return the path to all files in that path in order."""
     name_list = glob.glob(str(folder_path) + '/*.TIF')
+    if len(name_list) == 0:
+        name_list = glob.glob(str(folder_path) + '/*.tif')
     name_list.sort()
     name_list_path = []
     for name in name_list:
@@ -327,6 +330,11 @@ def input_info_to_output_paths(folder_path: Path, input_dict: dict) -> dict:
         path_dict["ph1_track_with_fl_seg_visualize_path"] = ph1_track_with_fl_seg_visualize_path
     else:
         path_dict["ph1_track_with_fl_seg_visualize_path"] = None
+    if input_dict["track_pillars_ph1"] is True:
+        track_pillars_ph1_path = create_folder(folder_path, "track_pillars_ph1")
+        path_dict["track_pillars_ph1_path"] = track_pillars_ph1_path
+    else:
+        path_dict["track_pillars_ph1_path"] = None
     return path_dict
 
 
@@ -622,7 +630,7 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     tissue_path = save_list(output_path, "tissue_parameters_vs_frame", tissue_parameters_list)
     # check if the tissue is broken
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, True)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # check if the wound is closed
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
@@ -711,15 +719,17 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     # segment the first image to get a frame 0 mask
     img_list_first = [img_list[0]]
     threshold_list = seg.threshold_all(img_list_first, threshold_function_idx)
-    frame_0_mask = threshold_list[0]
     # segmenment wound contouor
-    _, wound_mask_list, _ = seg.mask_all(threshold_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(threshold_list, threshold_function_idx)
+    frame_0_mask = tissue_mask_list[0]
     wound_mask = wound_mask_list[0]
     wound_contour = seg.mask_to_contour(wound_mask)
     # include reverse tracking
     include_reverse = True
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
+    frame_final_mask, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all = tt.perform_tracking(frame_0_mask, img_list, include_reverse, wound_contour)
     # save tracking results
+    path_final_frame_mask = output_path.joinpath("tracker_final_wound_mask.txt").resolve()
+    np.savetxt(str(path_final_frame_mask), frame_final_mask, fmt="%i")  # TODO: make this more specific -- will be used for key output metrics
     path_tx = output_path.joinpath("tracker_x_forward.txt").resolve()
     np.savetxt(str(path_tx), tracker_x_forward)
     path_ty = output_path.joinpath("tracker_y_forward.txt").resolve()
@@ -728,15 +738,120 @@ def run_texture_tracking(input_path: Path, output_path: Path, threshold_function
     np.savetxt(str(path_txr), tracker_x_reverse_forward)
     path_tyr = output_path.joinpath("tracker_y_reverse_forward.txt").resolve()
     np.savetxt(str(path_tyr), tracker_y_reverse_forward)
-    return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, path_tx, path_ty, path_txr, path_tyr
+    path_wound_area = output_path.joinpath("tracker_wound_area.txt").resolve()
+    np.savetxt(str(path_wound_area), np.asarray(wound_area_list))
+    path_wound_masks = output_path.joinpath("tracker_wound_masks.npy").resolve()
+    np.save(str(path_wound_masks), wound_masks_all)
+    return tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks
 
 
-# def run_texture_tracking_visualize(
-#     output_path: Path,
-#     img_list: List,
-#     contour_list_bf: List,
-#     track):
-#     return
+def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_function_idx: int):
+    img_list = read_all_tiff(input_path)
+    first_img = img_list[0]
+    pillar_mask_list = seg.get_pillar_mask_list(first_img, threshold_function_idx)
+    avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list)
+    path_disp_x = output_path.joinpath("pillar_tracker_x.txt").resolve()
+    path_disp_y = output_path.joinpath("pillar_tracker_y.txt").resolve()
+    np.savetxt(str(path_disp_x), avg_disp_all_x)
+    np.savetxt(str(path_disp_y), avg_disp_all_y)
+    return avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y
+
+
+def show_and_save_tracking(
+    img: np.ndarray,
+    contour: np.ndarray,
+    is_broken: bool,
+    is_closed: bool,
+    frame: int,
+    tracker_x_forward: np.ndarray,
+    tracker_y_forward: np.ndarray,
+    tracker_x_reverse_forward: np.ndarray,
+    tracker_y_reverse_forward: np.ndarray,
+    save_path: Path,
+    title: str
+):
+    """Given results of tracking. Will plot a single frame."""
+    plt.figure()
+    plt.imshow(img, cmap=plt.cm.gray)
+    xt = 3.0 * img.shape[1] / 8.0
+    yt = 7.0 * img.shape[0] / 8.0
+    if is_broken:
+        plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
+    else:
+        if is_closed:
+            if contour is not None:
+                plt.plot(contour[:, 1], contour[:, 0], 'k', linewidth=2.0, antialiased=True)
+        else:
+            if contour is not None:
+                plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+        # plot tracked points
+        plt.plot(tracker_x_forward[:, 0:frame].T, tracker_y_forward[:, 0:frame].T, "y-")
+        plt.plot(tracker_x_forward[:, frame], tracker_y_forward[:, frame], "y.")
+        plt.plot(tracker_x_reverse_forward[:, 0:frame].T, tracker_y_reverse_forward[:, 0:frame].T, "c-")
+        plt.plot(tracker_x_reverse_forward[:, frame], tracker_y_reverse_forward[:, frame], "c.")
+    plt.title(title)
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+    return
+
+
+def save_all_img_tracking(
+    output_path: Path,
+    fname: str,
+    img_list: List,
+    contour_list: List,
+    is_broken_list: List,
+    is_closed_list: List,
+    tracker_x_forward: np.ndarray,
+    tracker_y_forward: np.ndarray,
+    tracker_x_reverse_forward: np.ndarray,
+    tracker_y_reverse_forward: np.ndarray
+):
+    """"Given the results of tracking all frames. Will plot all frames."""
+    file_name_list = []
+    for kk in range(0, len(img_list)):
+        img = img_list[kk]
+        contour = contour_list[kk]
+        is_broken = is_broken_list[kk]
+        is_closed = is_closed_list[kk]
+        title = "frame %05d" % (kk)
+        frame = kk
+        save_path = output_path.joinpath(fname + "_%05d.png" % (kk)).resolve()
+        show_and_save_tracking(img, contour, is_broken, is_closed, frame, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, save_path, title)
+        file_name_list.append(save_path)
+    return file_name_list
+
+
+def run_texture_tracking_visualize(
+    output_path: Path,
+    img_list: List,
+    contour_list: List,
+    is_broken_list: List,
+    is_closed_list: List,
+    tracker_x_forward: np.ndarray,
+    tracker_y_forward: np.ndarray,
+    tracker_x_reverse_forward: np.ndarray,
+    tracker_y_reverse_forward: np.ndarray
+) -> tuple:
+    """Visualize tracking results -- still images and gif."""
+    fname = "tracking"
+    path_list = save_all_img_tracking(output_path, fname, img_list, contour_list, is_broken_list, is_closed_list, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
+    gif_path = create_gif(output_path, fname, path_list)
+    return (path_list, gif_path)
+
+
+def load_contour_coords(folder_path: Path):
+    num_files = len(glob.glob(str(folder_path) + "/ph1_images/*.TIF")) + len(glob.glob(str(folder_path) + "/ph1_images/*.tiff"))
+    contour_coords_list = []
+    for kk in range(0, num_files):
+        fname = str(folder_path) + "/segment_ph1/contour_coords_%05d.npy" % (kk)
+        if len(glob.glob(fname)) > 0:
+            contour_coords_list.append(np.load(fname))
+        else:
+            contour_coords_list.append(None)
+    return contour_coords_list
 
 
 def run_all(folder_path: Path) -> List:
@@ -804,8 +919,25 @@ def run_all(folder_path: Path) -> List:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["track_ph1_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
-        _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
+        tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _, _, _, _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run texture tracking")
-    # if input_dict["track_ph1_visualize"] is True:
+    if input_dict["track_ph1_visualize"] is True:
+        output_path = output_path_dict["track_ph1_vis_path"]
+        input_path = input_path_dict["ph1_images_path"]
+        img_list_ph1 = read_all_tiff(input_path)
+        contour_list_ph1 = load_contour_coords(folder_path)
+        is_broken_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_broken_vs_frame.txt"))
+        is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
+        _ = run_texture_tracking_visualize(output_path, img_list_ph1, contour_list_ph1, is_broken_list_ph1, is_closed_list_ph1, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
+        time_all.append(time.time())
+        action_all.append("visualized texture tracking")
+    if input_dict["track_pillars_ph1"] is True:
+        output_path = output_path_dict["track_pillars_ph1_path"]
+        input_path = input_path_dict["ph1_images_path"]
+        img_list_ph1 = read_all_tiff(input_path)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        _, _, _, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("run pilalr texture tracking")
     return time_all, action_all

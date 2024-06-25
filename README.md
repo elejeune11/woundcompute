@@ -158,6 +158,8 @@ bf_seg_with_fl_seg_visualize: True
 bf_track_with_fl_seg_visualize: False # do not modify
 ph1_seg_with_fl_seg_visualize: False # do not modify
 ph1_track_with_fl_seg_visualize: False # do not modify
+zoom_type: 1 # set to 1 for examples where you cannot see the pillars, set to 2 for examples where the pillars are visible
+track_pillars_ph1: False # this should be False for zoom type 1, set to True if you want pillar tracking for zoom type 2
 ```
 Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``. The ``.yaml`` file example shown above corresponds to the tutorial examples ``test_movie``.
 
@@ -211,6 +213,7 @@ Outputs from ph1 segmentation (``sample_dataset`` example):
 * ``files/sample_dataset/s*/segment_ph1/is_broken_vs_frame.txt.txt``
 * ``files/sample_dataset/s*/segment_ph1/is_closed_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/tissue_parameters_vs_frame.txt``
+
 
 The files ``is_broken_vs_frame.txt`` and ``is_closed_vs_frame.txt`` report ``0`` for ``False`` and ``1`` for ``True`` with one entry per frame. For example, if the tissue never breaks and never closes, both files will just contain a 1D array of zeros.
 
@@ -327,6 +330,7 @@ Please note that in some cases, there may be errors in defining ground truth dat
 - [ ] Perform additional validation vs. hand labeled data
 - [x] Add tissue width measurements to code outputs
 - [ ] Compare our procedural wound segmentation to machine learning approaches to wound segmentation
+- [ ] Validate pillar tracking, add pillar tracking to the tutorial
 - [ ] Add additional quantities of interest to the automatically computed outputs/ improve current functionality
 - [ ] Work on input/output data formatting to better fit experimental needs
 - [ ] ?

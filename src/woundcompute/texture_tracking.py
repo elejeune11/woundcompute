@@ -4,7 +4,8 @@ import numpy as np
 from scipy.spatial import distance
 from shapely.geometry import Point
 from skimage import exposure, img_as_ubyte
-from typing import List
+from typing import List, Union
+from woundcompute import segmentation as seg
 
 
 def get_tracking_param_dicts() -> dict:
@@ -245,7 +246,38 @@ def perform_tracking(frame_0_mask: np.ndarray, img_list: List, include_reverse: 
     return frame_final_mask, tracker_x, tracker_y, tracker_x_reverse, tracker_y_reverse, wound_area_list, wound_masks_all
 
 
-def perform_pillar_tracking(pillar_mask_list: List, img_list: List):
+def template_match_tracking(img_masked: np.ndarray, template: np.ndarray) -> Union[np.ndarray, float]:
+    # mask the image based on quadrant
+    h, w = template.shape
+    res = cv2.matchTemplate(img_masked, template, cv2.TM_CCORR_NORMED)
+    _, _, _, max_loc = cv2.minMaxLoc(res)
+    top_left = max_loc
+    bottom_right = (top_left[0] + w, top_left[1] + h)
+    x0, y0 = top_left
+    xf, yf = bottom_right
+    center_pt = np.zeros((2,))
+    center_pt[0] = (xf - x0) / 2 + x0
+    center_pt[1] = (yf - y0) / 2 + y0
+    return np.array([x0, y0, xf, yf]), center_pt
+
+
+def template_track_all_steps(img_list_uint8, pillar_mask, order_list):
+    time_0 = order_list[0]
+    template = seg.mask_to_template(img_list_uint8[time_0], pillar_mask)
+    tracker_x = []
+    tracker_y = []
+    for kk in range(0, len(img_list_uint8)):
+        img = img_list_uint8[order_list[kk]]
+        img_masked = seg.mask_img_for_pillar_track(img, pillar_mask)
+        _, center_pt = template_match_tracking(img_masked, template)
+        tracker_x.append(center_pt[0])
+        tracker_y.append(center_pt[1])
+    tracker_x = np.asarray(tracker_x)
+    tracker_y = np.asarray(tracker_y)
+    return tracker_x, tracker_y
+
+
+def perform_pillar_tracking(pillar_mask_list: List, img_list: List, version: int = 2):
     # convert img_list to all uint8 images
     img_list_uint8 = uint16_to_uint8_all(img_list)
     len_img_list = len(img_list_uint8)
@@ -256,10 +288,18 @@ def perform_pillar_tracking(pillar_mask_list: List, img_list: List):
     avg_disp_all_x = np.zeros((len_img_list, num_pillars))
     avg_disp_all_y = np.zeros((len_img_list, num_pillars))
     for kk in range(0, num_pillars):
-        tracker_x, tracker_y = track_all_steps(img_list_uint8, pillar_mask_list[kk], order_list)
+        # old version
+        if version == 1:
+            tracker_x, tracker_y = track_all_steps(img_list_uint8, pillar_mask_list[kk], order_list)
+        else:
+            tracker_x, tracker_y = template_track_all_steps(img_list_uint8, pillar_mask_list[kk], order_list)
         # consolidate average displacement
-        tracker_x_avg = np.mean(tracker_x, axis=0)
-        tracker_y_avg = np.mean(tracker_y, axis=0)
-        avg_disp_all_x[:, kk] = tracker_x_avg
-        avg_disp_all_y[:, kk] = tracker_y_avg
+        if version == 1:
+            tracker_x_avg = np.mean(tracker_x, axis=0)
+            tracker_y_avg = np.mean(tracker_y, axis=0)
+            avg_disp_all_x[:, kk] = tracker_x_avg
+            avg_disp_all_y[:, kk] = tracker_y_avg
+        else:
+            avg_disp_all_x[:, kk] = tracker_x
+            avg_disp_all_y[:, kk] = tracker_y
     return avg_disp_all_x, avg_disp_all_y

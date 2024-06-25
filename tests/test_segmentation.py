@@ -706,5 +706,98 @@ def test_get_pillar_mask_list():
     img_list = ia.read_all_tiff(folder_path)
     img_list = [img_list[-1]]
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    mask_seg_type = 2
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx, mask_seg_type)
     assert len(pillar_mask_list) == 3
+
+
+# def test_mask_quadrants_img():
+#     frame = np.random.random((100, 200))
+#     quadrant = 0
+#     masked_image = seg.mask_quadrants_img(frame, quadrant)
+#     assert masked_image[10, 10] > 0
+#     assert masked_image[90, 150] == 0
+#     quadrant = 1
+#     masked_image = seg.mask_quadrants_img(frame, quadrant)
+#     assert masked_image[80, 50] > 0
+#     assert masked_image[20, 150] == 0
+#     quadrant = 2
+#     masked_image = seg.mask_quadrants_img(frame, quadrant)
+#     assert masked_image[30, 150] > 0
+#     assert masked_image[90, 50] == 0
+#     quadrant = 3
+#     masked_image = seg.mask_quadrants_img(frame, quadrant)
+#     assert masked_image[80, 150] > 0
+#     assert masked_image[10, 10] == 0
+
+def test_mask_img_for_pillar_track():
+    ix0 = 100
+    ix1 = 200
+    img = (np.random.random((ix0, ix1)) * 255).astype("uint8")
+    pillar_mask = np.zeros((ix0, ix1))
+    rad_1 = 3
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    pillar_mask[50:57, 100:107] = disk_1
+    masked_img = seg.mask_img_for_pillar_track(img, pillar_mask, 10)
+    assert np.allclose(pillar_mask * masked_img, pillar_mask * img)
+    assert masked_img[20, 75] == 0
+    assert masked_img[80, 100] == 0
+    assert masked_img[60, 175] == 0
+
+
+def test_pillar_mask_to_box():
+    ix0 = 200
+    ix1 = 300
+    img = np.random.random((ix0, ix1))
+    pillar_mask = np.zeros((ix0, ix1))
+    rad_1 = 3
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    mix_0_min = 50
+    mix_0_max = 57
+    mix_1_min = 100
+    mix_1_max = 107
+    pillar_mask[mix_0_min:mix_0_max, mix_1_min:mix_1_max] = disk_1
+    buffer = 10
+    r_min, r_max, c_min, c_max = seg.pillar_mask_to_box(img, pillar_mask, buffer)
+    assert r_min == mix_0_min - buffer
+    assert r_max == mix_0_max + buffer
+    assert c_min == mix_1_min - buffer
+    assert c_max == mix_1_max + buffer
+
+
+def test_mask_to_template():
+    ix0 = 200
+    ix1 = 300
+    img = np.random.random((ix0, ix1))
+    pillar_mask = np.zeros((ix0, ix1))
+    rad_1 = 3
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    mix_0_min = 50
+    mix_0_max = 57
+    mix_1_min = 100
+    mix_1_max = 107
+    pillar_mask[mix_0_min:mix_0_max, mix_1_min:mix_1_max] = disk_1
+    buffer = 0
+    template = seg.mask_to_template(img, pillar_mask, buffer)
+    assert template.shape == disk_1.shape
+    template = seg.mask_to_template(pillar_mask, pillar_mask, buffer)
+    assert np.allclose(template, disk_1)
+
+
+def test_uint16_to_uint8():
+    arr = (np.random.random((10, 10)) * 1000 + 1).astype("uint16")
+    arr[4, 4] = 1200
+    arr[3, 3] = 0
+    arr_8 = seg.uint16_to_uint8(arr)
+    assert arr_8.dtype is np.dtype("uint8")
+    assert np.min(arr_8) == 0
+    assert np.max(arr_8) == 255
+
+
+def test_thresh_img_local():
+    arr = np.zeros((500, 500))
+    arr[50:100, 50:100] = 1000
+    arr[400:450, 400:450] = 100
+    gt_mask = (arr > 0).astype("uint8")
+    mask = seg.thresh_img_local(arr).astype("uint8")
+    assert np.allclose(gt_mask, mask)

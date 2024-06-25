@@ -309,6 +309,15 @@ def test_get_tissue_width_zoom():
     assert np.isclose(tissue_width, 400, 20)
     dist = ((pt1_0_orig - pt2_0_orig) ** 2.0 + (pt1_1_orig - pt2_1_orig) ** 2.0) ** 0.5
     assert np.isclose(tissue_width, dist, 5)
+    # example where tissue regions are less than 2
+    tissue_mask = np.zeros((500, 500))
+    wound_mask = np.zeros((500, 500))
+    tissue_width, pt1_0_orig, pt1_1_orig, pt2_0_orig, pt2_1_orig = com.get_tissue_width_zoom(tissue_mask, wound_mask)
+    assert np.isclose(tissue_width, 0.0)
+    assert np.isclose(pt1_0_orig, 0.0)
+    assert np.isclose(pt1_1_orig, 0.0)
+    assert np.isclose(pt2_0_orig, 0.0)
+    assert np.isclose(pt2_1_orig, 0.0)
 
 
 def test_get_tissue_width_rotated():
@@ -376,12 +385,12 @@ def test_tissue_parameters():
     region = seg.get_largest_regions(regions_all, 1)[0]
     _, axis_major_length, axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(region)
     # contour_clipped = com.clip_contour(tissue_contour, centroid_row, centroid_col, orientation, axis_major_length, axis_minor_length)
-    import matplotlib.pyplot as plt
-    plt.imshow(img_list[0])
-    plt.plot(tissue_contour[:, 1], tissue_contour[:, 0], 'r-o')
+    # import matplotlib.pyplot as plt
+    # plt.imshow(img_list[0])
+    # plt.plot(tissue_contour[:, 1], tissue_contour[:, 0], 'r-o')
     # plt.plot(contour_clipped[:, 1], contour_clipped[:, 0], 'c-.')
-    plt.plot(pt1_1, pt1_0, 'bo')
-    plt.plot(pt2_1, pt2_0, 'go')
+    # plt.plot(pt1_1, pt1_0, 'bo')
+    # plt.plot(pt2_1, pt2_0, 'go')
     assert width > 0
     assert area > 0
     assert kappa_1 < 1
@@ -391,11 +400,23 @@ def test_tissue_parameters():
     assert pt1_1 > 0 and pt1_1 < img_list[0].shape[0]
     assert pt2_1 > 0 and pt2_1 < img_list[0].shape[0]
     assert tissue_contour.shape[0] > 0
-    import matplotlib.pyplot as plt
-    plt.imshow(img_list[0])
+    # import matplotlib.pyplot as plt
+    # plt.imshow(img_list[0])
     # plt.plot(tissue_contour[:, 1], tissue_contour[:, 0], 'r-o')
-    plt.plot(pt1_1, pt1_0, 'bo')
-    plt.plot(pt2_1, pt2_0, 'go')
+    # plt.plot(pt1_1, pt1_0, 'bo')
+    # plt.plot(pt2_1, pt2_0, 'go')
+    tissue_mask = np.zeros((100, 200))
+    wound_mask = np.zeros((100, 200))
+    tissue_width, area, kappa_1, kappa_2, pt1_1_orig, pt1_0_orig, pt2_1_orig, pt2_0_orig, tissue_contour = com.tissue_parameters_zoom(tissue_mask, wound_mask)
+    assert np.isclose(tissue_width, 0)
+    assert np.isclose(area, 0.0)
+    assert np.isclose(kappa_1, 0.0)
+    assert np.isclose(kappa_2, 0.0)
+    assert np.isclose(pt1_1_orig, 0.0)
+    assert np.isclose(pt1_0_orig, 0.0)
+    assert np.isclose(pt2_0_orig, 0.0)
+    assert np.isclose(pt2_1_orig, 0.0)
+    assert tissue_contour is None
 
 
 def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
