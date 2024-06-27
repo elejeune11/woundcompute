@@ -801,3 +801,31 @@ def test_thresh_img_local():
     gt_mask = (arr > 0).astype("uint8")
     mask = seg.thresh_img_local(arr).astype("uint8")
     assert np.allclose(gt_mask, mask)
+
+
+def test_contour_to_mask():
+    mask = np.zeros((100, 100))
+    mask[50:90, 60:80] = 1
+    contour = seg.mask_to_contour(mask)
+    mask_new = seg.contour_to_mask(mask, contour)
+    assert mask_new.shape == mask.shape
+    assert np.isclose(np.sum(mask_new), np.sum(mask), 100)
+    mask = np.zeros((100, 100))
+    contour = seg.mask_to_contour(mask)
+    mask_new = seg.contour_to_mask(mask, contour)
+    assert mask_new.shape == mask.shape
+    assert np.allclose(mask, mask_new)
+    assert contour is None
+
+
+def test_contour_to_region():
+    mask = np.zeros((100, 100))
+    mask[50:90, 60:80] = 1
+    contour = seg.mask_to_contour(mask)
+    mask_new = seg.contour_to_mask(mask, contour)
+    wound_region = seg.contour_to_region(mask, contour)
+    assert np.sum(mask_new) == wound_region.area
+    mask = np.zeros((100, 100))
+    contour = seg.mask_to_contour(mask)
+    wound_region = seg.contour_to_region(mask, contour)
+    assert wound_region is None

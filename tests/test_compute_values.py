@@ -428,7 +428,8 @@ def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
     thresholded_list = seg.threshold_all(tiff_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
     contour_list = seg.contour_all(wound_mask_list)
-    area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
+    area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(tiff_list[0], contour_list)
+    # area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
     zoom_fcn_idx = 1
     tissue_parameter_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
     assert len(tissue_mask_list) == 5
@@ -446,6 +447,16 @@ def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
     assert np.min(axis_minor_length_list) >= 0
     for kk in range(0, 5):
         assert axis_major_length_list[kk] >= axis_minor_length_list[kk]
+
+
+def test_wound_parameters_all_none():
+    img = np.zeros((100, 100))
+    contour_list = [None, None, None]
+    area_list, maj_list, min_list = com.wound_parameters_all(img, contour_list)
+    for kk in range(0, 3):
+        assert area_list[kk] == 0
+        maj_list[kk] == 0
+        min_list[kk] == 0
 
 
 def test_tissue_parameters_anish():

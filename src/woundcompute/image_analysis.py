@@ -617,7 +617,8 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     # contour
     contour_list = seg.contour_all(wound_mask_list)
     # wound parameters
-    area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
+    area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(img_list[0], contour_list)
+    # area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
     # tissue parameters
     tissue_parameters_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
     # save numpy arrays

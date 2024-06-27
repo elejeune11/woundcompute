@@ -660,16 +660,36 @@ def check_wound_closed_all(tissue_mask_list: List, wound_region_list: List, zoom
     return check_wound_closed_list
 
 
-def wound_parameters_all(wound_region_list: List) -> List:
-    """Given a wound regions list. Will return wound properties list."""
+# def wound_parameters_all(wound_region_list: List) -> List:
+#     """Given a wound regions list. Will return wound properties list."""
+#     area_list = []
+#     axis_major_length_list = []
+#     axis_minor_length_list = []
+#     for wound_region in wound_region_list:
+#         area, axis_major_length, axis_minor_length, _, _, _, _, _ = seg.extract_region_props(wound_region)
+#         area_list.append(area)
+#         axis_major_length_list.append(axis_major_length)
+#         axis_minor_length_list.append(axis_minor_length)
+#     return area_list, axis_major_length_list, axis_minor_length_list
+def wound_parameters_all(img: np.ndarray, contour_list: List) -> List:
     area_list = []
     axis_major_length_list = []
     axis_minor_length_list = []
-    for wound_region in wound_region_list:
+    for contour in contour_list:
+        wound_region = seg.contour_to_region(img, contour)
         area, axis_major_length, axis_minor_length, _, _, _, _, _ = seg.extract_region_props(wound_region)
-        area_list.append(area)
-        axis_major_length_list.append(axis_major_length)
-        axis_minor_length_list.append(axis_minor_length)
+        if area is None:
+            area_list.append(0)
+        else:
+            area_list.append(area)
+        if axis_major_length is None:
+            axis_major_length_list.append(0)
+        else:
+            axis_major_length_list.append(axis_major_length)
+        if axis_minor_length is None:
+            axis_minor_length_list.append(0)
+        else:
+            axis_minor_length_list.append(axis_minor_length)
     return area_list, axis_major_length_list, axis_minor_length_list
 
 

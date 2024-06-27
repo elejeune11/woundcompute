@@ -567,3 +567,24 @@ def mask_to_template(img: np.ndarray, pillar_mask: np.ndarray, buffer: int = 2):
     r_min, r_max, c_min, c_max = pillar_mask_to_box(img, pillar_mask, buffer)
     template = img[r_min:r_max, c_min:c_max]
     return template
+
+
+def contour_to_mask(img: np.ndarray, contour: np.ndarray):
+    mask = np.zeros(img.shape)
+    if contour is None:
+        return mask
+    else:
+        contour_flip_axis = np.flip(contour, axis=1)
+        cv2.fillPoly(mask, pts=[np.int32(contour_flip_axis)], color=(255, 0, 0))
+        mask = (mask > 0).astype("uint8")
+        return mask
+
+
+def contour_to_region(img: np.ndarray, contour: np.ndarray):
+    if contour is None:
+        return None
+    else:
+        mask = contour_to_mask(img, contour)
+        region_props = get_region_props(mask)
+        wound_region = get_largest_regions(region_props, 1)[0]
+        return wound_region

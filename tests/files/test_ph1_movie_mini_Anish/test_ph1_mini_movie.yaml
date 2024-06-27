@@ -20,4 +20,4 @@ bf_track_with_fl_seg_visualize: False
 ph1_seg_with_fl_seg_visualize: False
 ph1_track_with_fl_seg_visualize: False
 zoom_type: 2
-track_pillars_ph1: False
+track_pillars_ph1: True
