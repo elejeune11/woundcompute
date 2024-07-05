@@ -588,3 +588,185 @@ def contour_to_region(img: np.ndarray, contour: np.ndarray):
         region_props = get_region_props(mask)
         wound_region = get_largest_regions(region_props, 1)[0]
         return wound_region
+
+
+# def sequence_tissue_segment(img_n: np.ndarray, img_np1: np.ndarray):
+#     img_sub = img_np1 - img_n
+#     import matplotlib.pyplot as plt
+#     plt.imshow(img_sub)
+#     aa = 44
+#     return aa
+
+def pillar_mask_to_rotated_box(mask: np.ndarray) -> np.ndarray:
+    """Given a mask. Will return the minimum area bounding rectangle."""
+    # insert borders to the mask
+    border = 10
+    mask_mod = insert_borders(mask, border)
+    # find contour
+    mask_mod_one = (mask_mod > 0).astype(np.float64)
+    mask_thresh_blur = ndimage.gaussian_filter(mask_mod_one, 1)
+    all_contours = measure.find_contours(mask_thresh_blur, 0.75)
+    all_pts = []
+    for cnt in all_contours:
+        for jj in range(0, cnt.shape[0]):
+            all_pts.append(cnt[jj, :])
+    cnts = np.asarray(all_pts).astype(np.int32)
+    # find minimum area bounding rectangle
+    rect = cv2.minAreaRect(cnts)
+    box = np.int0(cv2.boxPoints(rect))
+    return box
+
+
+def compute_unit_vector(x1: Union[int, float], x2: Union[int, float], y1: Union[int, float], y2: Union[int, float]) -> np.ndarray:
+    """Given two 2D points. Will return the unit vector between them"""
+    dist = compute_distance(x1, y1, x2, y2)
+    vec = np.asarray([(x2 - x1) / dist, (y2 - y1) / dist])
+    return vec
+
+
+def box_to_unit_vec_len_wid(box: np.ndarray) -> np.ndarray:
+    """Given the rectangular box. Will compute the unit vector of the longest side."""
+    side_1 = compute_distance(box[0, 0], box[0, 1], box[1, 0], box[1, 1])
+    side_2 = compute_distance(box[1, 0], box[1, 1], box[2, 0], box[2, 1])
+    if side_1 > side_2:
+        # side_1 is the long axis
+        vec = compute_unit_vector(box[0, 0], box[1, 0], box[0, 1], box[1, 1])
+        length = side_1
+        width = side_2
+    else:
+        # side_2 is the long axis
+        vec = compute_unit_vector(box[1, 0], box[2, 0], box[1, 1], box[2, 1])
+        length = side_2
+        width = side_1
+    return vec, length, width
+
+
+def box_to_center_points(box: np.ndarray) -> float:
+    """Given the rectangular box. Will compute the center as the midpoint of a diagonal."""
+    center_row = np.mean([box[0, 0], box[2, 0]])
+    center_col = np.mean([box[0, 1], box[2, 1]])
+    return center_row, center_col
+
+
+def mask_list_to_single_mask(pillar_mask_list: List) -> np.ndarray:
+    pillar_mask = pillar_mask_list[0]
+    for kk in range(1, len(pillar_mask_list)):
+        pillar_mask += pillar_mask_list[kk]
+    pillar_mask = (pillar_mask > 0).astype("uint8")
+    return pillar_mask
+
+
+def move_point_closer(pt_0, pt_1, c_0, c_1, factor):
+    dist = compute_distance(pt_0, pt_1, c_0, c_1)
+    move_dist = dist * factor
+    new_pt_0 = pt_0 + (c_0 - pt_0) / dist * move_dist
+    new_pt_1 = pt_1 + (c_1 - pt_1) / dist * move_dist
+    return new_pt_0, new_pt_1
+
+
+def shrink_box(box: np.ndarray, scale_factor: float) -> np.ndarray:
+    c_0, c_1 = box_to_center_points(box)
+    scale_box = np.zeros((4, 2))
+    for kk in range(0, 4):
+        pt_0 = box[kk, 0]
+        pt_1 = box[kk, 1]
+        new_pt_0, new_pt_1 = move_point_closer(pt_0, pt_1, c_0, c_1, scale_factor)
+        scale_box[kk, 0] = new_pt_0
+        scale_box[kk, 1] = new_pt_1
+    return scale_box
+
+
+def area_triangle_3_pts(x0, x1, x2, y0, y1, y2):
+    area = np.abs((x1 * y0 - x0 * y1) + (x2 * y1 - x1 * y2) + (x0 * y2 - x2 * y0)) / 2.0
+    return area
+
+
+def point_in_box(box: np.ndarray, pt_0: float, pt_1: float) -> bool:
+    box_tri_1 = area_triangle_3_pts(box[0, 0], box[1, 0], box[2, 0], box[0, 1], box[1, 1], box[2, 1])
+    box_tri_2 = area_triangle_3_pts(box[1, 0], box[2, 0], box[3, 0], box[1, 1], box[2, 1], box[3, 1])
+    area_box = box_tri_1 + box_tri_2
+    area_box_pt = 0
+    for kk in range(0, 3):
+        ix0 = kk
+        ix1 = kk + 1
+        area_box_pt += area_triangle_3_pts(box[ix0, 0], box[ix1, 0], pt_0, box[ix0, 1], box[ix1, 1], pt_1)
+    tol = 0.001
+    if area_box_pt > (area_box + tol):
+        return False
+    else:
+        return True
+
+
+def regions_in_box(box: np.ndarray, region: object) -> bool:
+    region_coords = region_to_coords([region])[0]
+    skip = 10
+    region_coords_downsampled = region_coords[::skip, :]
+    all_true = True
+    for kk in range(0, region_coords_downsampled.shape[0]):
+        pt_0 = region_coords_downsampled[kk, 0]
+        pt_1 = region_coords_downsampled[kk, 1]
+        all_true = all_true and point_in_box(box, pt_0, pt_1)
+    return all_true
+
+
+def regions_in_box_all(box: np.ndarray, region_list: List) -> List:
+    regions_keep = []
+    for region in region_list:
+        check_region = regions_in_box(box, region)
+        if check_region is True:
+            regions_keep.append(region)
+    return regions_keep
+
+
+def leverage_pillars_for_wound_seg(pillar_mask: np.ndarray, background_mask: np.asarray):
+    box = pillar_mask_to_rotated_box(pillar_mask)
+    center_0, center_1 = box_to_center_points(box)
+    scale_factor = 0.35
+    box_shrink = shrink_box(box, scale_factor)
+    region_props = get_region_props(background_mask)
+    region_props_not_touching = get_regions_not_touching_bounds(region_props, background_mask.shape)
+    num_regions = 10
+    regions_largest = get_largest_regions(region_props_not_touching, num_regions)
+    if len(regions_largest) > 0:
+        # eliminate regions outside of admissible area
+        allowable_regions = regions_in_box_all(box_shrink, regions_largest)
+        # get region closest to wound center
+        if len(allowable_regions) > 0:
+            wound_region = get_closest_region(allowable_regions, center_0, center_1)
+            wound_region_coords = region_to_coords([wound_region])
+            wound_mask_open = coords_to_mask(wound_region_coords, background_mask)
+            wound_mask = close_region(wound_mask_open)
+        else:
+            wound_mask = np.zeros(background_mask.shape)
+            wound_region = None
+    else:
+        wound_mask = np.zeros(background_mask.shape)
+        wound_region = None
+    # create the tissue mask
+    num_regions = 10  # changed from 3
+    regions_largest = get_largest_regions(region_props, num_regions)
+    regions_largest_coords = region_to_coords(regions_largest)
+    tissue_mask_extra = coords_to_inverted_mask(regions_largest_coords, background_mask)
+    region_props = get_region_props(tissue_mask_extra)
+    num_regions = 1
+    regions_largest = get_largest_regions(region_props, num_regions)
+    regions_largest_coords = region_to_coords(regions_largest)
+    tissue_mask_open = coords_to_mask(regions_largest_coords, pillar_mask)
+    tissue_mask = close_region(tissue_mask_open)
+    return tissue_mask, wound_mask, wound_region
+
+
+def mask_all_with_pillars(thresh_img_list: List, pillar_mask_list: List) -> List:
+    """Given a thresholded image list. Will return masks and wound regions."""
+    pillar_mask = mask_list_to_single_mask(pillar_mask_list)
+    tissue_mask_list = []
+    wound_mask_list = []
+    wound_region_list = []
+    num_images = len(thresh_img_list)
+    for kk in range(0, num_images):
+        background_mask = thresh_img_list[kk]
+        tissue_mask, wound_mask, wound_region = leverage_pillars_for_wound_seg(pillar_mask, background_mask)
+        tissue_mask_list.append(tissue_mask)
+        wound_mask_list.append(wound_mask)
+        wound_region_list.append(wound_region)
+    return tissue_mask_list, wound_mask_list, wound_region_list

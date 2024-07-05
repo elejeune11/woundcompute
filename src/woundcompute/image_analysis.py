@@ -613,7 +613,15 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     # apply threshold
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     # masking
-    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, threshold_function_idx)
+    if zoom_fcn_idx == 2:
+        # get pillar masks
+        # future idea: do this based on multiple images e.g., avg all images?
+        selection_idx = 4
+        pillar_mask_list = seg.get_pillar_mask_list(img_list[0], selection_idx)
+        # do zoom function type 2
+        tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
+    else:
+        tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, threshold_function_idx)
     # contour
     contour_list = seg.contour_all(wound_mask_list)
     # wound parameters

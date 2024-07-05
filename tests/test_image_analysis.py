@@ -548,6 +548,32 @@ def test_run_segment_ph1():
     assert is_closed_path.is_file()
 
 
+def test_run_segment_with_pillar_info():
+    name = "test_phi_movie_mini_Anish_tracking"
+    kind = "ph1"
+    folder_path = example_path(name)
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    input_path = path_dict[kind + "_images_path"]
+    input_dict = ia.input_info_to_input_dict(folder_path)
+    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+    output_path = path_dict["segment_" + kind + "_path"]
+    threshold_function_idx = 4
+    zoom_function_idx = 2
+    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx)
+    for wn in wound_name_list:
+        assert wn.is_file()
+    for tn in tissue_name_list:
+        assert tn.is_file()
+    for cn in contour_name_list:
+        assert cn.is_file()
+    assert area_path.is_file()
+    assert ax_maj_path.is_file()
+    assert ax_min_path.is_file()
+    assert tissue_path.is_file()
+    assert is_broken_path.is_file()
+    assert is_closed_path.is_file()
+
+
 def test_save_all_img_with_contour_and_create_gif_bf():
     for kind in ["brightfield", "fluorescent"]:
         zoom_fcn_idx = 1

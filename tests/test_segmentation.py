@@ -829,3 +829,204 @@ def test_contour_to_region():
     contour = seg.mask_to_contour(mask)
     wound_region = seg.contour_to_region(mask, contour)
     assert wound_region is None
+
+
+# def test_sequence_tissue_segment():
+#     folder_path = example_path("test_ph1_movie_mini_Anish")
+#     _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+#     folder_path = input_path_dict["ph1_images_path"]
+#     img_list = ia.read_all_tiff(folder_path)
+#     img_n = img_list[1]
+#     img_np1 = img_list[2]
+#     seg.sequence_tissue_segment(img_n, img_np1)
+
+
+def test_pillar_mask_to_rotated_box():
+    mask = np.zeros((1000, 1000))
+    mask[250:300, 420:450] = 1
+    mask[250:300, 520:550] = 1
+    mask[700:750, 420:450] = 1
+    mask[700:750, 520:550] = 1
+    box = seg.pillar_mask_to_rotated_box(mask)
+    assert box.shape == (4, 2)
+    assert np.isclose(np.min(box[:, 0]), 250, atol=3)
+    assert np.isclose(np.max(box[:, 0]), 750, atol=3)
+    assert np.isclose(np.min(box[:, 1]), 420, atol=3)
+    assert np.isclose(np.max(box[:, 1]), 550, atol=3)
+
+
+def test_compute_unit_vector():
+    x1 = 0
+    x2 = 10
+    y1 = 0
+    y2 = 0
+    vec = seg.compute_unit_vector(x1, x2, y1, y2)
+    assert np.allclose(vec, np.asarray([1, 0]))
+    x1 = 0
+    x2 = 10
+    y1 = 0
+    y2 = 10
+    vec = seg.compute_unit_vector(x1, x2, y1, y2)
+    assert np.allclose(vec, np.asarray([np.sqrt(2) / 2.0, np.sqrt(2) / 2.0]))
+
+
+def test_box_to_unit_vec_len_wid():
+    box = np.asarray([[0, 0], [0, 10], [5, 10], [5, 0]])
+    vec, leng, wid = seg.box_to_unit_vec_len_wid(box)
+    assert np.allclose(vec, np.asarray([0, 1]), atol=.1) or np.allclose(vec, np.asarray([0, -1]), atol=.1)
+    assert np.isclose(leng, 10.0)
+    assert np.isclose(wid, 5.0)
+    box = np.asarray([[0, 0], [0, 5], [10, 5], [10, 0]])
+    vec, leng, wid = seg.box_to_unit_vec_len_wid(box)
+    assert np.allclose(vec, np.asarray([1, 0])) or np.allclose(vec, np.asarray([-1, 0]))
+    assert np.isclose(leng, 10.0)
+    assert np.isclose(wid, 5.0)
+
+
+def test_box_to_center_points():
+    box = np.asarray([[0, 0], [0, 10], [5, 10], [5, 0]])
+    center_row, center_col = seg.box_to_center_points(box)
+    assert np.isclose(center_row, 2.5)
+    assert np.isclose(center_col, 5.0)
+
+
+def test_mask_list_to_single_mask():
+    mask_list = []
+    for kk in range(0, 5):
+        ma = np.zeros((100, 100))
+        ma[kk*10:(kk + 3)*10, kk*10:(kk + 3)*10] = 1
+        mask_list.append(ma)
+    mask = seg.mask_list_to_single_mask(mask_list)
+    assert mask.shape == (100, 100)
+    assert np.max(mask) == 1
+    assert np.min(mask) == 0
+
+
+def test_move_point_closer():
+    pt_0 = 0
+    pt_1 = 0
+    c_0 = 10
+    c_1 = 10
+    scale_factor = 0.5
+    new_pt_0, new_pt_1 = seg.move_point_closer(pt_0, pt_1, c_0, c_1, scale_factor)
+    assert np.isclose(new_pt_0, 5.0)
+    assert np.isclose(new_pt_1, 5.0)
+    pt_0 = 10
+    pt_1 = 0
+    c_0 = 3
+    c_1 = 4
+    scale_factor = 1.0
+    new_pt_0, new_pt_1 = seg.move_point_closer(pt_0, pt_1, c_0, c_1, scale_factor)
+    assert np.isclose(new_pt_0, c_0)
+    assert np.isclose(new_pt_1, c_1)
+
+
+def test_shrink_box():
+    box = np.asarray([[0, 0], [0, 10], [5, 10], [5, 0]])
+    scale_factor = 0.5
+    scale_box = seg.shrink_box(box, scale_factor)
+    assert np.isclose(scale_box[0, 0], 5.0 / 4.0)
+    assert np.isclose(scale_box[2, 0], 5.0 - 5.0 / 4.0)
+    assert np.isclose(scale_box[1, 1], 10.0 - 10.0 / 4.0)
+    assert np.isclose(scale_box[3, 1], 10.0 / 4.0)
+    ang = np.pi / 4.0
+    R = np.asarray([[np.cos(ang), np.sin(ang) * - 1.0], [np.sin(ang), np.cos(ang)]])
+    box_new = []
+    for kk in range(0, 4):
+        vec = np.dot(R, box[kk, :])
+        box_new.append(vec)
+    box_new = np.asarray(box_new)
+    scale_box = seg.shrink_box(box_new, scale_factor)
+    assert np.isclose(scale_box[0, 0], -0.88388348)
+    assert np.isclose(scale_box[2, 0], -2.651650429449553)
+    assert np.isclose(scale_box[1, 1], 6.187184335382291)
+    assert np.isclose(scale_box[3, 1], 4.419417382415922)
+
+
+def test_area_triangle_3_pts():
+    x0 = 0
+    y0 = 0
+    x1 = 10
+    y1 = 0
+    x2 = 10
+    y2 = 10
+    area = seg.area_triangle_3_pts(x0, x1, x2, y0, y1, y2)
+    assert np.isclose(area, 50.0)
+    x0 = 0
+    y0 = 0
+    x1 = 10
+    y1 = 0
+    x2 = 5
+    y2 = 10
+    area = seg.area_triangle_3_pts(x0, x1, x2, y0, y1, y2)
+    assert np.isclose(area, 50.0)
+
+
+def test_point_in_box():
+    box = np.asarray([[0, 0], [0, 10], [5, 10], [5, 0]])
+    pt_0 = 0.5
+    pt_1 = 5.0
+    in_box = seg.point_in_box(box, pt_0, pt_1)
+    assert in_box is True
+    pt_0 = -5
+    pt_1 = 5
+    in_box = seg.point_in_box(box, pt_0, pt_1)
+    assert in_box is False
+
+
+def test_regions_in_box():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img = img_list[0]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
+    pillar_box = seg.pillar_mask_to_rotated_box(pillar_mask)
+    thresh_img = seg.threshold_array(img, 4)
+    _, _, wound_region = seg.isolate_masks(thresh_img, 4)
+    region_in_box = seg.regions_in_box(pillar_box, wound_region)
+    assert region_in_box is True
+    scale_factor = 0.95
+    pillar_box_shrink = seg.shrink_box(pillar_box, scale_factor)
+    region_in_box = seg.regions_in_box(pillar_box_shrink, wound_region)
+    assert region_in_box is False
+    # test regions_in_box_all
+    wound_region_list = [wound_region, wound_region, wound_region]
+    regions_keep = seg.regions_in_box_all(pillar_box, wound_region_list)
+    assert len(regions_keep) == 3
+    regions_keep = seg.regions_in_box_all(pillar_box_shrink, wound_region_list)
+    assert len(regions_keep) == 0
+
+
+def test_leverage_pillars_for_wound_seg():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img = img_list[0]
+    threshold_function_idx = 4
+    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
+    background_mask = seg.threshold_array(img, threshold_function_idx)
+    tissue_mask, wound_mask, wound_region = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask)
+    assert tissue_mask.shape == img.shape
+    assert wound_mask.shape == img.shape
+    assert wound_region is not None
+
+
+def test_mask_all_with_pillars():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = 4
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
+    assert len(tissue_mask_list) == len(img_list)
+    assert len(wound_mask_list) == len(img_list)
+    assert len(wound_region_list) == len(img_list)
+    assert tissue_mask_list[0].shape == img_list[0].shape
+    assert wound_mask_list[0].shape == img_list[0].shape
