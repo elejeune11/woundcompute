@@ -622,8 +622,10 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
         tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
     else:
         tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, threshold_function_idx)
+        pillar_mask_list=None
     # contour
     contour_list = seg.contour_all(wound_mask_list)
+    wound_mask_list = seg.contour_to_mask_all(img_list[0],contour_list)
     # wound parameters
     area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(img_list[0], contour_list)
     # area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
@@ -639,6 +641,9 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     tissue_path = save_list(output_path, "tissue_parameters_vs_frame", tissue_parameters_list)
     # check if the tissue is broken
+    if pillar_mask_list:
+        is_broken_list = com.check_broken_tissue_all(
+            tissue_mask_list, wound_mask_list, True, zoom_fcn_idx,pillar_mask_list=pillar_mask_list)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # check if the wound is closed

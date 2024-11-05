@@ -56,6 +56,25 @@ def glob_ph1(example_name):
     return name_list
 
 
+def test_uint16_to_uint8():
+    arr = (np.random.random((10, 10)) * 1000 + 1).astype("uint16")
+    arr[4, 4] = 1200
+    arr[3, 3] = 0
+    arr_8 = seg.uint16_to_uint8(arr)
+    assert arr_8.dtype is np.dtype("uint8")
+    assert np.min(arr_8) == 0
+    assert np.max(arr_8) == 255
+
+
+def test_thresh_img_local():
+    arr = np.zeros((500, 500))
+    arr[50:100, 50:100] = 1000
+    arr[400:450, 400:450] = 100
+    gt_mask = (arr > 0).astype("uint8")
+    mask = seg.thresh_img_local(arr).astype("uint8")
+    assert np.allclose(gt_mask, mask)
+
+
 def test_apply_median_filter():
     array = np.ones((10, 10))
     array[1, 5] = 10
@@ -111,16 +130,6 @@ def test_apply_otsu_thresh():
     assert np.allclose(known, found)
 
 
-def test_apply_thresh_multiotsu():
-    dim = 100
-    arr = np.zeros((dim, dim))
-    arr[0:10, :] = 1
-    arr[50:70, 80:90] = 2
-    known = arr > 0
-    found = seg.apply_thresh_multiotsu(arr)
-    assert np.allclose(known, found)
-
-
 def test_get_region_props():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
@@ -133,13 +142,6 @@ def test_get_region_props():
     region_props = seg.get_region_props(array)
     assert region_props[0].area == np.sum(disk_1)
     assert region_props[1].area == np.sum(disk_2)
-
-
-def test_insert_borders():
-    mask = np.ones((50, 50))
-    border = 10
-    mask = seg.insert_borders(mask, border)
-    assert np.sum(mask) == 30 * 30
 
 
 def test_get_largest_regions():
@@ -160,6 +162,42 @@ def test_get_largest_regions():
     assert len(regions_list) == 2
     assert regions_list[0].area == np.sum(disk_1)
     assert regions_list[1].area == np.sum(disk_2)
+
+
+def test_get_regions_not_touching_bounds():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 3
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+    rad_3 = 2
+    disk_3 = morphology.disk(rad_3, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[3:disk_1.shape[0] + 3, 3:disk_1.shape[1] + 3] = disk_1
+    array[-disk_2.shape[0] - 3:-3, -disk_2.shape[1] - 3:-3] = disk_2
+    array_new_2 = np.copy(array)
+    array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
+    region_props = seg.get_region_props(array)
+    assert len(region_props) == 3
+    region_props_new = seg.get_regions_not_touching_bounds(region_props, array.shape)
+    assert len(region_props_new) == 2
+    array_new = np.copy(array)
+    array_new[-1, :] = 1
+    region_props = seg.get_region_props(array_new)
+    assert len(region_props) == 4
+    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
+    assert len(region_props_new) == 2
+    array_new = np.copy(array)
+    array_new[:, 0] = 1
+    region_props = seg.get_region_props(array_new)
+    assert len(region_props) == 4
+    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
+    assert len(region_props_new) == 2
+    array_new_2[:, -1] = 1
+    region_props = seg.get_region_props(array_new_2)
+    assert len(region_props) == 3
+    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
+    assert len(region_props_new) == 2
 
 
 def test_get_roundest_regions():
@@ -215,6 +253,28 @@ def test_get_closest_region():
     assert region.area == np.sum(disk_1)
 
 
+def test_get_closest_regions():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 3
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+    rad_3 = 2
+    disk_3 = morphology.disk(rad_3, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
+    array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
+    region_props = seg.get_region_props(array)
+    num_regions = 3
+    regions_list = seg.get_largest_regions(region_props, num_regions)
+    loc_0 = 10
+    loc_1 = 0
+    regions = seg.get_closest_regions(regions_list, loc_0, loc_1, 2)
+    assert regions[0].area == np.sum(disk_1)
+    assert regions[1].area == np.sum(disk_3)
+
+
 def test_extract_region_props():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
@@ -249,7 +309,7 @@ def test_extract_region_props():
     assert orientation is None
 
 
-def test_get_regions_not_touching_bounds():
+def test_region_to_coords():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
     rad_2 = 3
@@ -258,39 +318,13 @@ def test_get_regions_not_touching_bounds():
     disk_3 = morphology.disk(rad_3, dtype=bool)
     dim = 30
     array = np.zeros((dim, dim))
-    array[3:disk_1.shape[0] + 3, 3:disk_1.shape[1] + 3] = disk_1
-    array[-disk_2.shape[0] - 3:-3, -disk_2.shape[1] - 3:-3] = disk_2
-    array_new_2 = np.copy(array)
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
     array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
     region_props = seg.get_region_props(array)
-    assert len(region_props) == 3
-    region_props_new = seg.get_regions_not_touching_bounds(region_props, array.shape)
-    assert len(region_props_new) == 2
-    array_new = np.copy(array)
-    array_new[-1, :] = 1
-    region_props = seg.get_region_props(array_new)
-    assert len(region_props) == 4
-    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
-    assert len(region_props_new) == 2
-    array_new = np.copy(array)
-    array_new[:, 0] = 1
-    region_props = seg.get_region_props(array_new)
-    assert len(region_props) == 4
-    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
-    assert len(region_props_new) == 2
-    array_new_2[:, -1] = 1
-    region_props = seg.get_region_props(array_new_2)
-    assert len(region_props) == 3
-    region_props_new = seg.get_regions_not_touching_bounds(region_props, array_new.shape)
-    assert len(region_props_new) == 2
-
-
-def test_check_above_min_size():
-    array = np.zeros((20, 20))
-    array[8:12, 8:12] = 1
-    region = seg.get_region_props(array)[0]
-    assert seg.check_above_min_size(region, 3) is True
-    assert seg.check_above_min_size(region, 100) is False
+    coords_list = seg.region_to_coords(region_props)
+    assert len(coords_list) == 3
+    assert coords_list[0].shape[1] == 2
 
 
 def test_coords_to_mask():
@@ -301,6 +335,24 @@ def test_coords_to_mask():
     coords = [seg.extract_region_props(region)[5]]
     mask = seg.coords_to_mask(coords, disk_1)
     assert np.allclose(mask, disk_1)
+
+
+def test_invert_mask():
+    array_half = np.zeros((10, 10))
+    array_half[0:5, :] = 1
+    array_invert = seg.invert_mask(array_half)
+    assert np.allclose(array_invert + array_half, np.ones((10, 10)))
+
+
+def test_coords_to_inverted_mask():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    region_props = seg.get_region_props(disk_1)
+    region = region_props[0]
+    coords = [seg.extract_region_props(region)[5]]
+    mask = seg.coords_to_mask(coords, disk_1)
+    mask_inverted = seg.coords_to_inverted_mask(coords, disk_1)
+    assert np.allclose(mask + mask_inverted, np.ones(mask.shape))
 
 
 def test_mask_to_contour():
@@ -320,22 +372,47 @@ def test_mask_to_contour():
     assert contour is None
 
 
-def test_invert_mask():
-    array_half = np.zeros((10, 10))
-    array_half[0:5, :] = 1
-    array_invert = seg.invert_mask(array_half)
-    assert np.allclose(array_invert + array_half, np.ones((10, 10)))
+def test_close_region():
+    val = 10
+    array = np.zeros((val, val))
+    array[3:7, 3:7] = 1
+    array_missing = np.copy(array)
+    array_missing[5, 5] = 0
+    array_closed = seg.close_region(array_missing)
+    assert np.allclose(array_closed, array)
 
 
-def test_coords_to_inverted_mask():
-    rad_1 = 5
-    disk_1 = morphology.disk(rad_1, dtype=bool)
-    region_props = seg.get_region_props(disk_1)
-    region = region_props[0]
-    coords = [seg.extract_region_props(region)[5]]
-    mask = seg.coords_to_mask(coords, disk_1)
-    mask_inverted = seg.coords_to_inverted_mask(coords, disk_1)
-    assert np.allclose(mask + mask_inverted, np.ones(mask.shape))
+def test_dilate_region():
+    val = 10
+    array = np.zeros((val, val))
+    array[3:7, 3:7] = 1
+    array_dilated = seg.dilate_region(array) * 1.0
+    assert np.sum(array_dilated) == 6 * 6 - 4
+
+
+def test_gabor_filter():
+    array = np.zeros((10, 10))
+    gabor_all = seg.gabor_filter(array)
+    assert np.sum(gabor_all) == 0
+    file_path = glob_ph1("test_single")[1]
+    img = io.imread(file_path)
+    gabor_all = seg.gabor_filter(img)
+    assert np.allclose(gabor_all, img) is False
+    theta_range = 9
+    ff_max = 6
+    ff_mult = 0.05
+    gabor_all_2 = seg.gabor_filter(img, theta_range, ff_max, ff_mult)
+    assert np.allclose(gabor_all_2, img) is False
+
+
+def test_apply_thresh_multiotsu():
+    dim = 100
+    arr = np.zeros((dim, dim))
+    arr[0:10, :] = 1
+    arr[50:70, 80:90] = 2
+    known = arr > 0
+    found = seg.apply_thresh_multiotsu(arr)
+    assert np.allclose(known, found)
 
 
 def test_threshold_all():
@@ -385,21 +462,6 @@ def test_threshold_all():
     assert error.typename == "ValueError"
 
 
-def test_gabor_filter():
-    array = np.zeros((10, 10))
-    gabor_all = seg.gabor_filter(array)
-    assert np.sum(gabor_all) == 0
-    file_path = glob_ph1("test_single")[1]
-    img = io.imread(file_path)
-    gabor_all = seg.gabor_filter(img)
-    assert np.allclose(gabor_all, img) is False
-    theta_range = 9
-    ff_max = 6
-    ff_mult = 0.05
-    gabor_all_2 = seg.gabor_filter(img, theta_range, ff_max, ff_mult)
-    assert np.allclose(gabor_all_2, img) is False
-
-
 def test_preview_thresholding():
     file_path = glob_ph1("test_single")[1]
     img = io.imread(file_path)
@@ -418,22 +480,13 @@ def test_preview_thresholding():
     # aa = 44
 
 
-def test_region_to_coords():
-    rad_1 = 5
-    disk_1 = morphology.disk(rad_1, dtype=bool)
-    rad_2 = 3
-    disk_2 = morphology.disk(rad_2, dtype=bool)
-    rad_3 = 2
-    disk_3 = morphology.disk(rad_3, dtype=bool)
-    dim = 30
-    array = np.zeros((dim, dim))
-    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
-    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
-    array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
-    region_props = seg.get_region_props(array)
-    coords_list = seg.region_to_coords(region_props)
-    assert len(coords_list) == 3
-    assert coords_list[0].shape[1] == 2
+def test_get_mean_center():
+    img = np.ones((51,51))
+    center_0 = 25.0
+    center_1 = 25.0
+    found1,found2 = seg.get_mean_center(img)
+    assert np.isclose(center_0,found1)
+    assert np.isclose(center_1,found2)
 
 
 def test_isolate_masks_gfp():
@@ -556,22 +609,61 @@ def test_isolate_masks_other_case():
     assert error.typename == "ValueError"
 
 
-def test_close_region():
-    val = 10
-    array = np.zeros((val, val))
-    array[3:7, 3:7] = 1
-    array_missing = np.copy(array)
-    array_missing[5, 5] = 0
-    array_closed = seg.close_region(array_missing)
-    assert np.allclose(array_closed, array)
+def test_check_above_min_size():
+    array = np.zeros((20, 20))
+    array[8:12, 8:12] = 1
+    region = seg.get_region_props(array)[0]
+    assert seg.check_above_min_size(region, 3) is True
+    assert seg.check_above_min_size(region, 100) is False
 
 
-def test_dilate_region():
-    val = 10
-    array = np.zeros((val, val))
-    array[3:7, 3:7] = 1
-    array_dilated = seg.dilate_region(array) * 1.0
-    assert np.sum(array_dilated) == 6 * 6 - 4
+def test_fill_tissue_mask_reconstruction():
+    mask = np.zeros((50, 50))
+    mask[14:34, 14:34] = 1
+    mask_rect = np.copy(mask)
+    mask[20:30, 20:30] = 0
+    new_mask = seg.fill_tissue_mask_reconstruction(mask)
+    mask_rect[10:38, 10:38] = 1
+    assert np.allclose(new_mask, mask_rect)
+
+
+def test_insert_borders():
+    mask = np.ones((50, 50))
+    border = 10
+    mask = seg.insert_borders(mask, border)
+    assert np.sum(mask) == 30 * 30
+
+
+def test_make_tissue_mask_robust():
+    folder_path = example_path("test_ph1_movie_mini_Anish")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    threshold_function_idx = 4
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+    tissue_mask = tissue_mask_list[0]
+    wound_mask = wound_mask_list[0]
+    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
+    tissue_contour = seg.mask_to_contour(tissue_mask_robust)
+    assert tissue_contour.shape[0] > 100
+
+
+def test_make_tissue_mask_robust_brightfield():
+    folder_path = example_path("test_mini_movie")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["brightfield_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    threshold_function_idx = 4
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
+    tissue_mask = tissue_mask_list[0]
+    wound_mask = wound_mask_list[0]
+    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
+    tissue_contour = seg.mask_to_contour(tissue_mask_robust)
+    assert tissue_contour.shape[0] > 100
 
 
 def test_select_threshold_function():
@@ -647,48 +739,6 @@ def test_single_masks_ph1_special_cases():
     assert is_closed is False
 
 
-def test_fill_tissue_mask_reconstruction():
-    mask = np.zeros((50, 50))
-    mask[14:34, 14:34] = 1
-    mask_rect = np.copy(mask)
-    mask[20:30, 20:30] = 0
-    new_mask = seg.fill_tissue_mask_reconstruction(mask)
-    mask_rect[10:38, 10:38] = 1
-    assert np.allclose(new_mask, mask_rect)
-
-
-def test_make_tissue_mask_robust():
-    folder_path = example_path("test_ph1_movie_mini_Anish")
-    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
-    folder_path = input_path_dict["ph1_images_path"]
-    img_list = ia.read_all_tiff(folder_path)
-    img_list = [img_list[0]]
-    threshold_function_idx = 4
-    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
-    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
-    tissue_mask = tissue_mask_list[0]
-    wound_mask = wound_mask_list[0]
-    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
-    tissue_contour = seg.mask_to_contour(tissue_mask_robust)
-    assert tissue_contour.shape[0] > 100
-
-
-def test_make_tissue_mask_robust_brightfield():
-    folder_path = example_path("test_mini_movie")
-    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
-    folder_path = input_path_dict["brightfield_images_path"]
-    img_list = ia.read_all_tiff(folder_path)
-    img_list = [img_list[0]]
-    threshold_function_idx = 4
-    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
-    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
-    tissue_mask = tissue_mask_list[0]
-    wound_mask = wound_mask_list[0]
-    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
-    tissue_contour = seg.mask_to_contour(tissue_mask_robust)
-    assert tissue_contour.shape[0] > 100
-
-
 def test_get_pillar_mask_list():
     folder_path = example_path("test_pillar_tracking")
     _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
@@ -730,20 +780,6 @@ def test_get_pillar_mask_list():
 #     assert masked_image[80, 150] > 0
 #     assert masked_image[10, 10] == 0
 
-def test_mask_img_for_pillar_track():
-    ix0 = 100
-    ix1 = 200
-    img = (np.random.random((ix0, ix1)) * 255).astype("uint8")
-    pillar_mask = np.zeros((ix0, ix1))
-    rad_1 = 3
-    disk_1 = morphology.disk(rad_1, dtype=bool)
-    pillar_mask[50:57, 100:107] = disk_1
-    masked_img = seg.mask_img_for_pillar_track(img, pillar_mask, 10)
-    assert np.allclose(pillar_mask * masked_img, pillar_mask * img)
-    assert masked_img[20, 75] == 0
-    assert masked_img[80, 100] == 0
-    assert masked_img[60, 175] == 0
-
 
 def test_pillar_mask_to_box():
     ix0 = 200
@@ -765,6 +801,21 @@ def test_pillar_mask_to_box():
     assert c_max == mix_1_max + buffer
 
 
+def test_mask_img_for_pillar_track():
+    ix0 = 100
+    ix1 = 200
+    img = (np.random.random((ix0, ix1)) * 255).astype("uint8")
+    pillar_mask = np.zeros((ix0, ix1))
+    rad_1 = 3
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    pillar_mask[50:57, 100:107] = disk_1
+    masked_img = seg.mask_img_for_pillar_track(img, pillar_mask, 10)
+    assert np.allclose(pillar_mask * masked_img, pillar_mask * img)
+    assert masked_img[20, 75] == 0
+    assert masked_img[80, 100] == 0
+    assert masked_img[60, 175] == 0
+
+
 def test_mask_to_template():
     ix0 = 200
     ix1 = 300
@@ -782,25 +833,6 @@ def test_mask_to_template():
     assert template.shape == disk_1.shape
     template = seg.mask_to_template(pillar_mask, pillar_mask, buffer)
     assert np.allclose(template, disk_1)
-
-
-def test_uint16_to_uint8():
-    arr = (np.random.random((10, 10)) * 1000 + 1).astype("uint16")
-    arr[4, 4] = 1200
-    arr[3, 3] = 0
-    arr_8 = seg.uint16_to_uint8(arr)
-    assert arr_8.dtype is np.dtype("uint8")
-    assert np.min(arr_8) == 0
-    assert np.max(arr_8) == 255
-
-
-def test_thresh_img_local():
-    arr = np.zeros((500, 500))
-    arr[50:100, 50:100] = 1000
-    arr[400:450, 400:450] = 100
-    gt_mask = (arr > 0).astype("uint8")
-    mask = seg.thresh_img_local(arr).astype("uint8")
-    assert np.allclose(gt_mask, mask)
 
 
 def test_contour_to_mask():
@@ -1000,6 +1032,26 @@ def test_regions_in_box():
     assert len(regions_keep) == 0
 
 
+def test_get_most_similar_area_region():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 3
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+    rad_3 = 2
+    disk_3 = morphology.disk(rad_3, dtype=bool)
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
+    array[0:disk_3.shape[0], -disk_3.shape[1]:] = disk_3
+    region_props = seg.get_region_props(array)
+    num_regions = 3
+    regions_list = seg.get_largest_regions(region_props, num_regions)
+    prev_area = 130
+    regions = seg.get_most_similar_area_region(regions_list, prev_area,1)
+    assert regions[0].area == np.sum(disk_1)
+
+
 def test_leverage_pillars_for_wound_seg():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
@@ -1010,7 +1062,7 @@ def test_leverage_pillars_for_wound_seg():
     pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
     pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
     background_mask = seg.threshold_array(img, threshold_function_idx)
-    tissue_mask, wound_mask, wound_region = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask)
+    tissue_mask, wound_mask, wound_region = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask,None)
     assert tissue_mask.shape == img.shape
     assert wound_mask.shape == img.shape
     assert wound_region is not None

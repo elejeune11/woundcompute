@@ -255,6 +255,13 @@ def test_yml_to_dict():
     assert db["track_pillars_ph1"] is False
 
 
+def test_create_folder():
+    folder_path = example_path("test_io")
+    new_folder_name = "test_create_folder"
+    new_folder = ia.create_folder(folder_path, new_folder_name)
+    assert new_folder.is_dir()
+
+
 def test_input_info_to_input_dict():
     folder_path = example_path("test_single")
     db = ia.input_info_to_input_dict(folder_path)
@@ -326,13 +333,6 @@ def test_when_io_fails():
         input_file = yaml_test("bad_load.yaml")
         ia._yml_to_dict(yml_path_file=input_file)
     assert error.typename == "OSError"
-
-
-def test_create_folder():
-    folder_path = example_path("test_io")
-    new_folder_name = "test_create_folder"
-    new_folder = ia.create_folder(folder_path, new_folder_name)
-    assert new_folder.is_dir()
 
 
 def test_create_folder_guaranteed_conditions():
@@ -755,7 +755,8 @@ def test_show_and_save_tracking():
     img_list = ia.read_all_tiff(input_path)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0],4)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list,pillar_mask_list=pillar_mask_list)
     zoom_fcn_idx = 1
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
     contour_list = seg.contour_all(wound_mask_list)

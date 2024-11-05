@@ -4,7 +4,7 @@ from scipy import ndimage
 from skimage import exposure, img_as_ubyte
 from skimage.segmentation import clear_border
 from skimage import measure, morphology
-from skimage.filters import gabor, threshold_otsu, threshold_multiotsu, rank
+from skimage.filters import gabor_kernel, threshold_otsu, threshold_multiotsu, rank
 from skimage.measure import label, regionprops
 from typing import List, Union
 from woundcompute import compute_values as com
@@ -105,21 +105,22 @@ def get_roundest_regions(region_props: List, num_regions: int = 3) -> List:
     return regions_list
 
 
-def get_longest_regions(region_props: List, num_regions: int = 3) -> List:
-    """Given a list of region properties. Will return the num_regions roundest regions.
-    If there are fewer than num_regions regions, will return all regions.
-    For eccentricity, 0 = circle, 1 = more elliptical"""
-    eccentricity_list = []
-    for region in region_props:
-        eccentricity = region.eccentricity
-        eccentricity_list.append(eccentricity)
-    ranked = np.argsort(eccentricity_list)
-    num_to_return = np.min([len(ranked), num_regions])
-    regions_list = []
-    for kk in range(0, num_to_return):
-        idx = ranked[len(ranked) - kk - 1]
-        regions_list.append(region_props[idx])
-    return regions_list
+# def get_longest_regions(region_props: List, num_regions: int = 3) -> List:
+#     """Given a list of region properties. Will return the num_regions longest regions.
+#     If there are fewer than num_regions regions, will return all regions.
+#     For eccentricity, 0 = circle, 1 = more elliptical"""
+#     eccentricity_list = []
+#     for region in region_props:
+#         eccentricity = region.eccentricity
+#         eccentricity_list.append(eccentricity)
+#     print(eccentricity_list)
+#     ranked = np.argsort(eccentricity_list)
+#     num_to_return = np.min([len(ranked), num_regions])
+#     regions_list = []
+#     for kk in range(0, num_to_return):
+#         idx = ranked[len(ranked) - kk - 1]
+#         regions_list.append(region_props[idx])
+#     return regions_list
 
 
 def get_domain_center(array: np.ndarray) -> Union[int, float]:
@@ -155,6 +156,30 @@ def get_closest_region(
         center_dist.append(dist)
     ix = np.argmin(center_dist)
     return regions_list[ix]
+
+
+def get_closest_regions(
+    regions_list: List,
+    loc_0: Union[int, float],
+    loc_1: Union[int, float],
+    num_closest_regions: int=1
+) -> object:
+    """Given a list of region properties. Will return the object closest to location."""
+    dist_list = []
+    for cur_region in regions_list:
+        centroid = cur_region.centroid
+        region_0,region_1 = centroid
+        dist = compute_distance(region_0,region_1,loc_0,loc_1)
+        dist_list.append(dist)
+
+    dist_arr = np.array(dist_list)
+    num_closest_regions = min(len(dist_arr)-1, num_closest_regions)
+    indices = np.argpartition(dist_arr, num_closest_regions)[:num_closest_regions]
+
+    closest_regions = []
+    for ind in indices:
+        closest_regions.append(regions_list[ind])
+    return closest_regions
 
 
 def extract_region_props(region_props: object) -> Union[float, np.ndarray]:
@@ -210,10 +235,10 @@ def coords_to_inverted_mask(coords_list: List, array: np.ndarray) -> np.ndarray:
 
 def mask_to_contour(mask: np.ndarray) -> np.ndarray:
     """Given a mask of the wound. Will return contour around wound."""
-    filter_size = 1
-    blur = apply_gaussian_filter(mask, filter_size)
+    # filter_size = 1
+    # blur = apply_gaussian_filter(mask, filter_size)
     # contours = measure.find_contours(blur, 0.95)
-    contours = measure.find_contours(blur, 0.75)
+    contours = measure.find_contours(mask, 0.75)
     contour_list = []
     contour_leng = []
     for cont in contours:
@@ -241,13 +266,15 @@ def dilate_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
     return dilated_array
 
 
-def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 11, ff_mult: float = 0.1) -> np.ndarray:
+def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 3, ff_mult: float = 0.4) -> np.ndarray:
     gabor_all = np.zeros(array.shape)
     for ff in range(0, ff_max):
         frequency = 0.2 + ff * ff_mult
         for tt in range(0, theta_range):
             theta = tt * np.pi / (theta_range - 1)
-            filt_real, _ = gabor(array, frequency=frequency, theta=theta)
+            # filt_real, _ = gabor(array, frequency=frequency, theta=theta)
+            g_kernel = gabor_kernel(frequency=frequency,theta=theta)
+            filt_real = ndimage.convolve(array,np.real(g_kernel),mode='reflect',cval=0)
             gabor_all += filt_real
     return gabor_all
 
@@ -303,6 +330,15 @@ def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
         raise ValueError("specified version is not supported")
 
 
+def threshold_all(img_list: List, threshold_function_idx: int) -> List:
+    """Given an image list and function index. Will apply threshold to all images."""
+    thresholded_list = []
+    for img in img_list:
+        thresh_img = threshold_array(img, threshold_function_idx)
+        thresholded_list.append(thresh_img)
+    return thresholded_list
+
+
 def preview_thresholding(img: np.ndarray) -> list:
     """Given an image array. Will run all thresholds on the array for preview."""
     thresh_list = []
@@ -314,7 +350,7 @@ def preview_thresholding(img: np.ndarray) -> list:
 
 
 def get_mean_center(array: np.ndarray) -> Union[float, int]:
-    """ """
+    """Given a mask, return the center of the mask."""
     coords = np.argwhere(array > 0)
     center_0 = np.mean(coords[:, 0])
     center_1 = np.mean(coords[:, 1])
@@ -358,15 +394,6 @@ def isolate_masks(array: np.ndarray, selection_idx: int) -> np.ndarray:
         return tissue_mask, wound_mask, wound_region
     else:
         raise ValueError("specified version is not supported")
-
-
-def threshold_all(img_list: List, threshold_function_idx: int) -> List:
-    """Given an image list and function index. Will apply threshold to all images."""
-    thresholded_list = []
-    for img in img_list:
-        thresh_img = threshold_array(img, threshold_function_idx)
-        thresholded_list.append(thresh_img)
-    return thresholded_list
 
 
 def mask_all(thresh_img_list: List, selection_idx: int) -> List:
@@ -488,6 +515,7 @@ def select_threshold_function(
 #         pillar_mask_list.append(mask)
 #     return pillar_mask_list
 
+
 def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int = 1):
     # get tissue
     thresh_img_tissue = threshold_array(img, selection_idx)
@@ -547,6 +575,8 @@ def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int
 #         mask[mask_h:, mask_w:] = 255
 #     masked_image = cv2.bitwise_and(frame, frame, mask=mask)
 #     return masked_image
+
+
 def pillar_mask_to_box(img: np.ndarray, pillar_mask: np.ndarray, buffer: int):
     r_min = np.max([0, np.min(np.argwhere(pillar_mask > 0)[:, 0]) - buffer])
     r_max = np.min([img.shape[0], np.max(np.argwhere(pillar_mask > 0)[:, 0]) + buffer + 1])
@@ -580,6 +610,14 @@ def contour_to_mask(img: np.ndarray, contour: np.ndarray):
         return mask
 
 
+def contour_to_mask_all(img:np.ndarray, contour_list:List)->List:
+    masks_list = []
+    for contour in contour_list:
+        mask = contour_to_mask(img,contour)
+        masks_list.append(mask)
+    return masks_list
+
+
 def contour_to_region(img: np.ndarray, contour: np.ndarray):
     if contour is None:
         return None
@@ -597,15 +635,17 @@ def contour_to_region(img: np.ndarray, contour: np.ndarray):
 #     aa = 44
 #     return aa
 
-def pillar_mask_to_rotated_box(mask: np.ndarray) -> np.ndarray:
+def pillar_mask_to_rotated_box(mask: np.ndarray,border:int=10) -> np.ndarray:
     """Given a mask. Will return the minimum area bounding rectangle."""
     # insert borders to the mask
-    border = 10
-    mask_mod = insert_borders(mask, border)
+    if border > 0:
+        mask_mod = insert_borders(mask, border)
+    else:
+        mask_mod = mask
     # find contour
     mask_mod_one = (mask_mod > 0).astype(np.float64)
-    mask_thresh_blur = ndimage.gaussian_filter(mask_mod_one, 1)
-    all_contours = measure.find_contours(mask_thresh_blur, 0.75)
+    # mask_thresh_blur = ndimage.gaussian_filter(mask_mod_one, 1)
+    all_contours = measure.find_contours(mask_mod_one, 0.75)
     all_pts = []
     for cnt in all_contours:
         for jj in range(0, cnt.shape[0]):
@@ -649,7 +689,7 @@ def box_to_center_points(box: np.ndarray) -> float:
 
 
 def mask_list_to_single_mask(pillar_mask_list: List) -> np.ndarray:
-    pillar_mask = pillar_mask_list[0]
+    pillar_mask = pillar_mask_list[0].copy()
     for kk in range(1, len(pillar_mask_list)):
         pillar_mask += pillar_mask_list[kk]
     pillar_mask = (pillar_mask > 0).astype("uint8")
@@ -683,12 +723,15 @@ def area_triangle_3_pts(x0, x1, x2, y0, y1, y2):
 
 def point_in_box(box: np.ndarray, pt_0: float, pt_1: float) -> bool:
     box_tri_1 = area_triangle_3_pts(box[0, 0], box[1, 0], box[2, 0], box[0, 1], box[1, 1], box[2, 1])
-    box_tri_2 = area_triangle_3_pts(box[1, 0], box[2, 0], box[3, 0], box[1, 1], box[2, 1], box[3, 1])
+    box_tri_2 = area_triangle_3_pts(box[2, 0], box[3, 0], box[0, 0], box[2, 1], box[3, 1], box[0, 1])
     area_box = box_tri_1 + box_tri_2
     area_box_pt = 0
-    for kk in range(0, 3):
+    for kk in range(0, 4):
         ix0 = kk
-        ix1 = kk + 1
+        if kk == 3:
+            ix1 = 0
+        else:
+            ix1 = kk + 1
         area_box_pt += area_triangle_3_pts(box[ix0, 0], box[ix1, 0], pt_0, box[ix0, 1], box[ix1, 1], pt_1)
     tol = 0.001
     if area_box_pt > (area_box + tol):
@@ -718,11 +761,45 @@ def regions_in_box_all(box: np.ndarray, region_list: List) -> List:
     return regions_keep
 
 
-def leverage_pillars_for_wound_seg(pillar_mask: np.ndarray, background_mask: np.asarray):
+def get_most_similar_area_region(
+    regions_list,
+    prev_area,
+    num_regions: int=1
+) -> object:
+    """Given a list of region properties. Will return the objects closest to area."""
+    diff_list = []
+    for cur_region in regions_list:
+        cur_area = cur_region.area
+        dist = abs(cur_area - prev_area)
+        diff_list.append(dist)
+
+    diff_arr = np.array(diff_list)
+    indices = np.argpartition(diff_arr, num_regions)[:num_regions]
+
+    most_similar_area_regions = []
+    for ind in indices:
+        most_similar_area_regions.append(regions_list[ind])
+    return most_similar_area_regions
+
+
+def leverage_pillars_for_wound_seg(
+    pillar_mask: np.ndarray,
+    background_mask: np.asarray,
+    wound_region)->List:
+
     box = pillar_mask_to_rotated_box(pillar_mask)
-    center_0, center_1 = box_to_center_points(box)
     scale_factor = 0.35
     box_shrink = shrink_box(box, scale_factor)
+
+    if wound_region:
+        prev_frame_cent0,prev_frame_cent1 = wound_region.centroid
+        prev_frame_area = wound_region.area
+    else:
+        center_0, center_1 = box_to_center_points(box)
+        prev_frame_cent0 = center_0
+        prev_frame_cent1 = center_1
+        prev_frame_area = None
+
     region_props = get_region_props(background_mask)
     region_props_not_touching = get_regions_not_touching_bounds(region_props, background_mask.shape)
     num_regions = 10
@@ -730,12 +807,26 @@ def leverage_pillars_for_wound_seg(pillar_mask: np.ndarray, background_mask: np.
     if len(regions_largest) > 0:
         # eliminate regions outside of admissible area
         allowable_regions = regions_in_box_all(box_shrink, regions_largest)
+        num_allowable_reg = len(allowable_regions)
         # get region closest to wound center
-        if len(allowable_regions) > 0:
-            wound_region = get_closest_region(allowable_regions, center_0, center_1)
+        if num_allowable_reg > 0:
+            if num_allowable_reg == 1: # 1 region, that region is the wound
+                wound_region = allowable_regions[0]
+            else: # if more than 1 region, find the region with most similar area and position to previous wound
+                closest_wound_regions = get_closest_regions(allowable_regions,prev_frame_cent0,prev_frame_cent1,2)
+                if len(closest_wound_regions) == 1:
+                    wound_region = closest_wound_regions[0]
+                elif prev_frame_area:
+                    # wound_region_coords = region_to_coords(closest_wound_regions)
+                    # combined_mask = coords_to_mask(wound_region_coords,background_mask)
+                    # region_props_combined = regionprops(combined_mask.astype(np.uint8))
+                    # regions_in_question = closest_wound_regions + region_props_combined
+                    wound_region = get_most_similar_area_region(closest_wound_regions,prev_frame_area,1)[0]
+                else:
+                    wound_region = get_largest_regions(closest_wound_regions, 1)[0]
             wound_region_coords = region_to_coords([wound_region])
-            wound_mask_open = coords_to_mask(wound_region_coords, background_mask)
-            wound_mask = close_region(wound_mask_open)
+            wound_mask_open = coords_to_mask(wound_region_coords, background_mask) # first extraction
+            wound_mask = close_region(wound_mask_open) # closing step
         else:
             wound_mask = np.zeros(background_mask.shape)
             wound_region = None
@@ -763,9 +854,12 @@ def mask_all_with_pillars(thresh_img_list: List, pillar_mask_list: List) -> List
     wound_mask_list = []
     wound_region_list = []
     num_images = len(thresh_img_list)
+    wound_region = None
     for kk in range(0, num_images):
         background_mask = thresh_img_list[kk]
-        tissue_mask, wound_mask, wound_region = leverage_pillars_for_wound_seg(pillar_mask, background_mask)
+        tissue_mask, wound_mask, wound_region = leverage_pillars_for_wound_seg(
+            pillar_mask, background_mask,wound_region
+            )
         tissue_mask_list.append(tissue_mask)
         wound_mask_list.append(wound_mask)
         wound_region_list.append(wound_region)
