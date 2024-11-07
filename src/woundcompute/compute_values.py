@@ -556,7 +556,6 @@ def check_broken_tissue_with_pillars(
         return is_broken
     # test if broken via lack of quad symmetry (on 3 pillars)
     Q_list,_ = obtain_tissue_quarters_area(tissue_mask,pillar_mask_list)
-    print(Q_list)
     min_area = np.amin(Q_list)
     max_area = np.amax(Q_list)
     mean_area = np.mean(Q_list)
@@ -647,13 +646,11 @@ def check_broken_tissue_all(
         if len(wound_mask_list) > 0:
             wound_mask = wound_mask_list[kk]
         if zoom_type == 2 and pillar_mask_list==None:
-            print('use zoom_type==2 no pillars')
             if compare_orig:
                 is_broken = check_broken_tissue(tissue_mask, tissue_mask_list[0])
             else:
                 is_broken = check_broken_tissue(tissue_mask)
         elif zoom_type == 2 and pillar_mask_list:
-            print('using pillar_mask_list')
             if compare_orig:
                 is_broken = check_broken_tissue_with_pillars(tissue_mask, pillar_mask_list,tissue_mask_list[0])
             else:

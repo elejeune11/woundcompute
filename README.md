@@ -20,7 +20,8 @@
 
 ## Project Summary <a name="summary"></a>
 
-This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time. We can also automatically identify tissue properties such as tissue width, and tissue edge curvature, determine if the tissue is broken (i.e., detached from posts) or if the wound is closed.
+This software is designed to analyze experimental data from micro-tissue wound experiments (see: [references](#references)). The goal of our software is to extract quantitative information from these images and movies. For example, we can automatically identify the wound region which allows us extract properties such as wound area, major axis length, and minor axis length with respect to time. We can also track the motion and obtain the deflections of the microposts over time. We have also implemented some analysis to determine if the tissue is broken (i.e., detached from posts), or if the wound is closed.
+
 
 <p align = "center">
 <img alt="schematic of experimental system" src="tutorials/figs/schematic.png" width="20%" />
@@ -96,7 +97,16 @@ Type "help", "copyright", "credits" or "license" for more information.
 This GitHub repository contains a folder called ``tutorials`` that contains an example dataset and python script for running the code.
 
 ### Preparing data for analysis <a name="data_prep"></a>
-The input dataset for analysis will have this folder structure:
+To follow along with our tutorials, the example folders (i.e., `s1`, `s2`, `s3`) can be found in the following path:
+```bash
+|___ tutorials
+|       |___ files
+|               |___ sample_dataset
+|                       |___ s1
+|                       |___ s2
+|                       |___ s3
+```
+For each example, the input dataset for analysis will have this folder structure:
 ```bash
 |___ Example_folder
 |        |___ input_file.yaml
@@ -167,7 +177,7 @@ Many of the inputs (noted ``# do not modify``) will only be relevant to future f
 
 Once all of the previous steps are completed, running the code is actually quite straightforward. To run the tutorial examples, navigate terminal so that your current directory is in the ``tutorials`` folder. To run the code on the provided single example, type:
 ```bash
-python run_code_tutorial.py files/test_movie
+python run_code_tutorial.py files/sample_dataset/s1
 ```
 And it will automatically run the example specified by the ``files/test_movie`` folder. You can use the ``run_code_tutorial.py`` to run your own code, you just need to specify a relative path between your current working directory (i.e., the directory that your ``Terminal`` is in) and the data that you want to analyze.
 
