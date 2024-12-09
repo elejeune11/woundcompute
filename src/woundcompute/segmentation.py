@@ -860,6 +860,7 @@ def mask_all_with_pillars(thresh_img_list: List, pillar_mask_list: List) -> List
         tissue_mask, wound_mask, wound_region = leverage_pillars_for_wound_seg(
             pillar_mask, background_mask,wound_region
             )
+        tissue_mask[pillar_mask==1] = 0
         tissue_mask_list.append(tissue_mask)
         wound_mask_list.append(wound_mask)
         wound_region_list.append(wound_region)
