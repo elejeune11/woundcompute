@@ -444,8 +444,12 @@ def save_all_img_with_contour_and_width(
         cont = contour_list[kk]
         is_broken = is_broken_list[kk]
         is_closed = is_closed_list[kk]
-        pillars_pos_x = avg_pos_all_x[kk]
-        pillars_pos_y = avg_pos_all_y[kk]
+        if avg_pos_all_x is None:
+            pillars_pos_x = None
+            pillars_pos_y = None
+        else:
+            pillars_pos_x = avg_pos_all_x[kk]
+            pillars_pos_y = avg_pos_all_y[kk]
         #  area, pt1_0, pt1_1, pt2_0, pt2_1, width, kappa_1, kappa_2
         tp = tissue_parameters_list[kk]
         points = [[tp[1], tp[3]], [tp[2], tp[4]]]
