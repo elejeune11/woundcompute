@@ -740,7 +740,8 @@ def test_run_texture_tracking_pillars():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "pillar_track_ph1")
     threshold_function_idx = 4
-    avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(input_path, output_path, threshold_function_idx)
+    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(input_path, output_path, threshold_function_idx)
+    assert len(pillars_mask_list) == 4
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
     assert path_disp_y.is_file()
