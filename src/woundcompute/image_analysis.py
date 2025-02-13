@@ -8,6 +8,7 @@ from skimage import io
 import time
 from typing import List
 import yaml
+from skimage.transform import rescale
 from woundcompute import segmentation as seg
 from woundcompute import compute_values as com
 from woundcompute import texture_tracking as tt
@@ -103,12 +104,29 @@ def show_and_save_contour_and_width(
     # plt.savefig(save_path)
     # plt.close()
 
+    img_h,img_w = img_array.shape
+    xt_broken = 2.6 * img_w / 8.0
+    yt_broken = 0.8 * img_h / 8.0
+    xt_closed = 2.4 * img_w / 8.0
+    yt_closed = 7.5 * img_h / 8.0
+
+    if img_h > 512 or img_h > 512:
+        scale_factor = 1 / ( (img_w/512 + img_h/512) / 2 )
+        img_array = rescale(img_array,scale_factor,anti_aliasing=True)
+        contour=contour*scale_factor if contour is not None else None
+        points=np.array(points)*scale_factor if points is not None else None
+        pillars_pos_x=pillars_pos_x*scale_factor if pillars_pos_x is not None else None
+        pillars_pos_y=pillars_pos_y*scale_factor if pillars_pos_y is not None else None
+        xt_broken=xt_broken*scale_factor
+        yt_broken=yt_broken*scale_factor
+        xt_closed=xt_closed*scale_factor
+        yt_closed=yt_closed*scale_factor
+    else:
+        scale_factor = 1
+
     plt.figure()
     plt.imshow(img_array, cmap=plt.cm.gray)
-    xt_broken = 2.6 * img_array.shape[1] / 8.0
-    yt_broken = 0.8 * img_array.shape[0] / 8.0
-    xt_closed = 2.4 * img_array.shape[1] / 8.0
-    yt_closed = 7.5 * img_array.shape[0] / 8.0
+
 
     if points is not None:
         plt.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
@@ -123,7 +141,7 @@ def show_and_save_contour_and_width(
     if contour is not None:
         plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
     if pillars_pos_x is not None and pillars_pos_y is not None:
-        dot_size = 0.00002 * img_array.shape[0] * img_array.shape[1]
+        dot_size = 0.00003 * img_w * img_h * scale_factor
         plt.scatter(pillars_pos_x,pillars_pos_y,s=dot_size,c='blue')
     plt.title(title)
     plt.axis('off')
@@ -689,6 +707,7 @@ def run_segment(input_path: Path, output_path: Path, threshold_function_idx: int
     if pillar_mask_list:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx,pillar_mask_list=pillar_mask_list)
+        _ = save_all_numpy(output_path, "pillar", pillar_mask_list)
     else:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
