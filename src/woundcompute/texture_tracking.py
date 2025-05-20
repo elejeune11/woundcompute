@@ -285,8 +285,8 @@ def perform_pillar_tracking(pillar_mask_list: List, img_list: List, version: int
     order_list = get_order_track(len_img_list, is_forward)
     # for each pillar mask perform tracking
     num_pillars = len(pillar_mask_list)
-    avg_disp_all_x = np.zeros((len_img_list, num_pillars))
-    avg_disp_all_y = np.zeros((len_img_list, num_pillars))
+    avg_pos_all_x = np.zeros((len_img_list, num_pillars))
+    avg_pos_all_y = np.zeros((len_img_list, num_pillars))
     for kk in range(0, num_pillars):
         # old version
         if version == 1:
@@ -297,9 +297,9 @@ def perform_pillar_tracking(pillar_mask_list: List, img_list: List, version: int
         if version == 1:
             tracker_x_avg = np.mean(tracker_x, axis=0)
             tracker_y_avg = np.mean(tracker_y, axis=0)
-            avg_disp_all_x[:, kk] = tracker_x_avg
-            avg_disp_all_y[:, kk] = tracker_y_avg
+            avg_pos_all_x[:, kk] = tracker_x_avg # outdated
+            avg_pos_all_y[:, kk] = tracker_y_avg # outdated
         else:
-            avg_disp_all_x[:, kk] = tracker_x
-            avg_disp_all_y[:, kk] = tracker_y
-    return avg_disp_all_x, avg_disp_all_y
+            avg_pos_all_x[:, kk] = tracker_x
+            avg_pos_all_y[:, kk] = tracker_y
+    return avg_pos_all_x, avg_pos_all_y

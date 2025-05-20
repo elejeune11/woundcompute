@@ -585,7 +585,7 @@ def pillar_mask_to_box(img: np.ndarray, pillar_mask: np.ndarray, buffer: int):
     return r_min, r_max, c_min, c_max
 
 
-def mask_img_for_pillar_track(img: np.ndarray, pillar_mask: np.ndarray, buffer: int = 50) -> np.ndarray:
+def mask_img_for_pillar_track(img: np.ndarray, pillar_mask: np.ndarray, buffer: int = 100) -> np.ndarray:
     r_min, r_max, c_min, c_max = pillar_mask_to_box(img, pillar_mask, buffer)
     mask = np.zeros(img.shape)
     mask[r_min:r_max, c_min:c_max] = 1
