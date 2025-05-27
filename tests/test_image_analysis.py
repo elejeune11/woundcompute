@@ -654,6 +654,33 @@ def test_load_contour_coords_none():
         assert contour is None
 
 
+def test_combine_images_runs():
+
+    dir = files_path().joinpath("test_combine_images/visualizations").resolve()
+    image_type = "ph1"
+
+    ia.combine_images(
+        folder_path=dir,
+        output_path=dir,
+        image_type=image_type,
+        max_combined_width=1000,
+        individual_max_size=200
+    )
+
+    expected_output = dir / f"{image_type}_all_files.png"
+    assert expected_output.exists()
+
+    with pytest.raises(ValueError):
+        wrong_dir = files_path().joinpath("test_combine_images").resolve()
+        ia.combine_images(
+            folder_path=wrong_dir,
+            output_path=wrong_dir,
+            image_type="ph1",
+            max_combined_width=1000,
+            individual_max_size=200
+        )
+
+
 def test_run_all_ph1_broken():
     folder_path = example_path("test_ph1_mini_movie_broken")
     time_all, action_all = ia.run_all(folder_path)
@@ -733,6 +760,71 @@ def test_run_texture_tracking():
     assert tracker_x_reverse_forward.shape[1] == tracker_y_reverse_forward.shape[1]
     assert len(wound_area_list) == tracker_x_forward.shape[1]
     assert len(wound_masks_all) == tracker_x_forward.shape[1]
+
+
+@pytest.mark.parametrize("n_plots,expected", [
+    (0, (0, 0)),             # no plots
+    (1, (1, 1)),             # single plot
+    (2, (1, 2)),             # minimal non-square
+    (4, (2, 2)),             # perfect square
+    (6, (2, 3)),             # non-square, best-fit
+    (7, (3, 3)),             # prime number
+    (10, (3, 4)),            # fits in 3x4
+    (12, (3, 4)),            # same as above
+    (15, (4, 4)),            # close to square
+    (100, (10, 10)),         # large square
+    (101, (10, 11)),         # slightly over square
+])
+def test_get_subplot_dims(n_plots, expected):
+    assert ia.get_subplot_dims(n_plots) == expected
+
+
+def test_show_and_save_relative_pillar_distances_runs():
+    # Arrange
+    num_frames = 50
+    num_pairs = 6
+    relative_distances = np.random.rand(num_frames, num_pairs)
+    GPR_relative_distances = np.random.rand(num_frames, num_pairs)
+    rel_dist_pair_names = np.array([f"pair_{i}" for i in range(num_pairs)])
+    output_path = files_path()
+
+    # Act
+    ia.show_and_save_relative_pillar_distances(
+        relative_distances,
+        GPR_relative_distances,
+        rel_dist_pair_names,
+        output_path
+    )
+
+    # Assert
+    output_file = output_path / "relative_pillar_distances.png"
+    assert output_file.exists()
+
+
+def test_show_and_save_pillar_positions_runs():
+    # Arrange
+    height, width = 200, 200
+    img = np.random.randint(0, 255, size=(height, width), dtype=np.uint8)
+    
+    num_frames = 50
+    num_pillars = 4
+    avg_pos_all_x = np.random.rand(num_frames, num_pillars) * width
+    avg_pos_all_y = np.random.rand(num_frames, num_pillars) * height
+
+    output_path = files_path()
+
+    # Act
+    ia.show_and_save_pillar_positions(
+        img,
+        avg_pos_all_x,
+        avg_pos_all_y,
+        output_path,
+        title="Test Pillar Positions"
+    )
+
+    # Assert
+    output_file = output_path / "pillar_positions.png"
+    assert output_file.exists()
 
 
 def test_run_texture_tracking_pillars():

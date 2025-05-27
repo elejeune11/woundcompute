@@ -1,5 +1,6 @@
 import numpy as np
 from pathlib import Path
+import pytest
 from woundcompute import image_analysis as ia
 from woundcompute import post_process as pp
 
@@ -221,3 +222,234 @@ def test_drift_correct_pillar_track():
     assert np.allclose(pillar_defl_y_gt, pillar_defl_y) is False
     assert np.allclose(np.zeros(rigid_x.shape), rigid_x) is False
     assert np.allclose(np.zeros(rigid_y.shape), rigid_y) is False
+
+
+def test_get_angle_and_distance_basic():
+    """Test core functionality with a simple case"""
+    angle, distance_sq = pp.get_angle_and_distance(3, 4, 0, 0)
+    
+    expected_angle = np.arctan2(4, 3)
+    assert np.isclose(angle, expected_angle)
+    assert distance_sq == 25
+
+
+def test_order_points_clockwise_with_indices_basic_ordering():
+    """Test points in all quadrants are ordered correctly."""
+    points = np.array([[1, 1], [-1, 1], [-1, -1], [1, -1]])
+    ordered_points, ordered_indices = pp.order_points_clockwise_with_indices(points)
+
+    assert np.allclose(ordered_points,np.array([[1,-1], [-1,-1], [-1,1], [1,1]]))
+    assert ordered_indices == [3, 2, 1, 0]
+
+
+def test_order_points_clockwise_with_indices_empty_input():
+    """Test empty input returns empty lists."""
+    points = []
+    ordered_points, ordered_indices = pp.order_points_clockwise_with_indices(points)
+    assert ordered_points == []
+    assert ordered_indices == []
+
+def test_order_points_clockwise_with_indices_collinear_points():
+    """Test collinear points (same angle) are ordered by distance."""
+    points = np.array([(1, 0), (2, 0), (3, 0)])  # All on x-axis
+    ordered_points, ordered_indices = pp.order_points_clockwise_with_indices(points)
+    
+    # Expected order: closest to centroid first
+    assert np.allclose(ordered_points,np.array([(1, 0), (2, 0), (3, 0)]))
+    assert ordered_indices == [0, 1, 2]
+
+
+def test_rearrange_pillars_indexing_basic_4_pillars():
+    """Test basic functionality with 4 pillars in distinct quadrants"""
+    # Create 4 simple pillar masks (small squares in each quadrant)
+    img_h, img_w = 600, 1600
+    pillar_masks = [
+        np.zeros((img_h, img_w)),  # Will be placed in quadrant 0 (top-right)
+        np.zeros((img_h, img_w)),  # quadrant 1 (top-left)
+        np.zeros((img_h, img_w)),  # quadrant 2 (bottom-left)
+        np.zeros((img_h, img_w))   # quadrant 3 (bottom-right)
+    ]
+    
+    # Place centroids in each quadrant
+    centroids = [(1200, 70), (20, 100), (10, 500), (1000, 450)]  # x,y coordinates
+    for i, (x, y) in enumerate(centroids):
+        pillar_masks[i][y-5:y+5, x-5:x+5] = 1  # 10x10 square centered at (x,y)
+    
+    x_locs = np.array([[1200, 20, 10, 1000], [1202, 22, 12, 1002]])
+    y_locs = np.array([[70, 100, 500, 450], [72, 102, 502, 452]])
+    
+    new_masks, new_x, new_y = pp.rearrange_pillars_indexing(pillar_masks, x_locs, y_locs)
+    
+    # Verify location data is rearranged correctly
+    expected_x_order = [10, 20, 1200, 1000]  # Based on original positions
+    expected_y_order = [500, 100, 70, 450]
+
+    assert np.allclose(new_x[0], expected_x_order)
+    assert np.allclose(new_y[0], expected_y_order)
+
+
+def test_compute_relative_pillars_dist_one_frame():
+    """Test with a simple 2-object, 1-frame case."""
+    x_locs = np.array([[0.0, 1.0]])  # Frame 1: p0 at x=0, p1 at x=1
+    y_locs = np.array([[0.0, 0.0]])  # Frame 1: p0 at y=0, p1 at y=0
+
+    distances, pair_names = pp.compute_relative_pillars_dist(x_locs, y_locs)
+
+    # Expected distance: sqrt((1-0)^2 + (0-0)^2) = 1.0
+    assert np.allclose(distances, np.array([[1.0]]))
+    assert pair_names == ["p0-p1"]
+
+
+def test_compute_relative_pillars_dist_multiple_frames():
+    """Test with multiple frames."""
+    x_locs = np.array([
+        [0.0, 1.0],  # Frame 1
+        [0.0, 2.0],  # Frame 2
+    ])
+    y_locs = np.array([
+        [0.0, 0.0],  # Frame 1
+        [0.0, 0.0],  # Frame 2
+    ])
+
+    distances, pair_names = pp.compute_relative_pillars_dist(x_locs, y_locs)
+
+    # Expected distances:
+    # Frame 1: sqrt(1^2 + 0^2) = 1.0
+    # Frame 2: sqrt(2^2 + 0^2) = 2.0
+    assert np.allclose(distances, np.array([[1.0], [2.0]]))
+    assert pair_names == ["p0-p1"]
+
+
+def test_compute_relative_pillars_dist_non_matching_shapes():
+    """Test when x_locs and y_locs have different shapes."""
+    x_locs = np.array([[0.0, 1.0]])
+    y_locs = np.array([[0.0, 1.0, 2.0]])  # Different P
+
+    with pytest.raises(ValueError):
+        pp.compute_relative_pillars_dist(x_locs, y_locs)
+
+
+def test_smooth_with_GPR_Matern_kernel_basic():
+    """Test basic functionality with clean input data"""
+    # Create simple sinusoidal test data
+    num_frames = 100
+    x = np.linspace(0, 10, num_frames)
+    s = np.sin(x)  # Clean input signal
+    
+    smoothed = pp.smooth_with_GPR_Matern_kernel(s)
+    
+    # Basic output validation
+    assert isinstance(smoothed, np.ndarray)
+    assert smoothed.shape == (num_frames,)
+    assert not np.any(np.isnan(smoothed))
+    assert not np.any(np.isinf(smoothed))
+    
+    # Should be smoother than original (lower std dev)
+    assert np.std(smoothed) <= np.std(s)
+
+
+def test_smooth_with_GPR_Matern_kernel_with_nans():
+    """Test handling of NaN values in input"""
+    num_frames = 50
+    s = np.random.randn(num_frames)
+    
+    # Add some NaN values
+    s[10:15] = np.nan
+    s[30:35] = np.nan
+    
+    smoothed = pp.smooth_with_GPR_Matern_kernel(s)
+    
+    # Should handle NaNs and return all finite values
+    assert smoothed.shape == (num_frames,)
+    assert not np.any(np.isnan(smoothed))
+    assert not np.any(np.isinf(smoothed))
+    
+    # Check values around NaN regions are reasonable
+    assert np.all(np.isfinite(smoothed[9:16]))
+    assert np.all(np.isfinite(smoothed[29:36]))
+
+
+def test_smooth_with_GPR_Matern_kernel_edge_cases():
+    """Test edge cases - very short input and all NaN input"""
+    # Very short input
+    s_short = np.array([1.0, 2.0, 3.0])
+    smoothed_short = pp.smooth_with_GPR_Matern_kernel(s_short)
+    assert smoothed_short.shape == (3,)
+    
+    # All NaN input
+    s_all_nan = np.full(10, np.nan)
+    smoothed_nan = pp.smooth_with_GPR_Matern_kernel(s_all_nan)
+    assert smoothed_nan.shape == (10,)
+    assert np.all(np.isnan(smoothed_nan))  # Should either return NaNs or handle gracefully
+
+
+def test_smooth_with_GPR_Matern_kernel_noisy_data():
+    """Test with noisy input data"""
+    np.random.seed(42)  # For reproducible results
+    num_frames = 200
+    x = np.linspace(0, 10, num_frames)
+    clean_signal = np.sin(x)
+    noisy_signal = clean_signal + 0.2 * np.random.randn(num_frames)
+    
+    smoothed = pp.smooth_with_GPR_Matern_kernel(noisy_signal)
+    
+    # Should be closer to clean signal than noisy input
+    mse_noisy = np.mean((noisy_signal - clean_signal)**2)
+    mse_smoothed = np.mean((smoothed - clean_signal)**2)
+    assert mse_smoothed < mse_noisy
+
+
+def test_smooth_relative_pillar_distances_with_GPR_basic():
+    """Test basic functionality with clean input"""
+    # Create test data: 100 frames, 3 pillar pairs
+    num_frames = 100
+    num_pairs = 3
+    test_data = np.zeros((num_frames, num_pairs))
+    
+    # Create simple patterns for each pillar pair
+    test_data[:, 0] = np.sin(np.linspace(0, 10, num_frames))  # Sinusoidal pattern
+    test_data[:, 1] = np.linspace(0, 1, num_frames)          # Linear pattern
+    test_data[:, 2] = np.random.randn(num_frames)             # Random pattern
+    
+    smoothed = pp.smooth_relative_pillar_distances_with_GPR(test_data)
+    
+    # Basic output validation
+    assert isinstance(smoothed, np.ndarray)
+    assert smoothed.shape == (num_frames, num_pairs)
+    assert not np.any(np.isnan(smoothed))
+    assert not np.any(np.isinf(smoothed))
+    
+    # Should maintain same general patterns
+    assert np.allclose(np.diff(smoothed[:, 1]), np.diff(test_data[:, 1]), atol=0.1)  # Linear pattern preserved
+
+
+def test_smooth_relative_pillar_distances_with_GPR_with_nans():
+    """Test handling of NaN values in input"""
+    num_frames = 50
+    num_pairs = 2
+    test_data = np.random.randn(num_frames, num_pairs)
+    
+    # Add NaN values to first pillar pair
+    test_data[10:15, 0] = np.nan
+    test_data[30:35, 0] = np.nan
+    
+    smoothed = pp.smooth_relative_pillar_distances_with_GPR(test_data)
+    
+    # Should handle NaNs and return all finite values
+    assert smoothed.shape == (num_frames, num_pairs)
+    assert not np.any(np.isnan(smoothed))
+    
+    # Check NaN regions are properly interpolated
+    assert np.all(np.isfinite(smoothed[10:15, 0]))
+    assert np.all(np.isfinite(smoothed[30:35, 0]))
+
+
+def test_smooth_relative_pillar_distances_with_GPR_single_pair():
+    """Test with single pillar pair"""
+    num_frames = 30
+    test_data = np.random.randn(num_frames, 1)  # Single pillar pair
+    
+    smoothed = pp.smooth_relative_pillar_distances_with_GPR(test_data)
+    
+    assert smoothed.shape == (num_frames, 1)
+    assert not np.any(np.isnan(smoothed))

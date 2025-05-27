@@ -1,7 +1,9 @@
 import numpy as np
 from pathlib import Path
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, WhiteKernel
+from sklearn.gaussian_process.kernels import RBF, WhiteKernel, Matern
+from woundcompute import segmentation as seg
+from typing import List
 
 
 def get_wound_area(output_path: Path) -> np.ndarray:
@@ -185,3 +187,161 @@ def drift_correct_pillar_track(output_path: Path):
         return pillar_defl_x_update, pillar_defl_y_update, rigid_x, rigid_y
     else:
         return pillar_defl_x, pillar_defl_y, rigid_x, rigid_y
+
+
+def get_angle_and_distance(x, y, cx, cy):
+    """
+    Calculate the angle (in radians) and squared Euclidean distance from a point (x, y) 
+    to a reference center point (cx, cy).
+
+    :param x (float or int): X-coordinate of the target point.
+    :param y (float or int): Y-coordinate of the target point.
+    :param cx (float or int): X-coordinate of the reference center point.
+    :param cy (float or int): Y-coordinate of the reference center point.
+
+    :returns:
+        tuple[float, float]: A tuple containing:
+            - angle (float): Angle in radians from the positive x-axis (centered at (cx, cy)), 
+              in the range [-π, π] (computed via `np.arctan2`).
+            - distance (float): Squared Euclidean distance (dx² + dy²) to avoid sqrt overhead.
+    """
+    dx = x - cx
+    dy = y - cy
+    angle = np.arctan2(dy, dx)  # [-pi, pi]
+    distance = dx**2 + dy**2     # Squared distance (avoid sqrt)
+    return angle, distance
+
+
+def order_points_clockwise_with_indices(points):
+    if len(points)==0:
+        return [], []
+    
+    # Compute centroid (origin for angle calculation)
+    n = len(points)
+    cx = sum(x for x, y in points) / n
+    cy = sum(y for x, y in points) / n
+    
+    # Process points: (original index, x, y, angle, distance)
+    processed = []
+    for idx, (x, y) in enumerate(points):
+        angle, dist = get_angle_and_distance(x, y, cx, cy)
+        processed.append((idx, x, y, angle, dist))
+    
+    # Shift angles to [0, 2pi) for consistent sorting
+    shifted_processed = []
+    for idx, x, y, angle, dist in processed:
+        shifted_angle = angle if angle >= 0 else angle + 2 * np.pi
+        shifted_processed.append((idx, x, y, shifted_angle, dist))
+    
+    # Sort by angle, then by distance
+    shifted_processed.sort(key=lambda p: (-p[3], p[4]))
+    
+    # Extract ordered points and original indices
+    ordered_points = [(x, y) for _, x, y, _, _ in shifted_processed]
+    ordered_indices = [idx for idx, _, _, _, _ in shifted_processed]
+    
+    return ordered_points, ordered_indices
+
+
+def rearrange_pillars_indexing(pillar_masks:List,x_locs:np.ndarray,y_locs:np.ndarray):
+    """
+    Rearrange the pillars' location.
+    First pillar is top right, second pillar top left,
+    third pillar bottom right, fourth pillar bottom right.
+    We could update this for multiple pillars by computing angle to center.
+
+    :param pillar_masks: A list of binary masks depicting the pillars.
+    :param x_locs: x-location of pillars. N by P array, where N is frame number, P is number of pillars.
+    :param y_locs: y-location of pillars. N by P array, where N is frame number, P is number of pillars.
+
+    :return: List of pillar masks. Rearranged x and y locations of pillars.
+    """
+
+    img_h,img_w = pillar_masks[0].shape
+    num_pillars = len(pillar_masks)
+    new_pillar_masks = np.zeros((num_pillars,img_h,img_w))
+    new_x_locs = np.zeros_like(x_locs)
+    new_y_locs = np.zeros_like(y_locs)
+
+    pillar_centroids = np.zeros((num_pillars,2))
+    for mask_ind,mask in enumerate(pillar_masks):
+        region_props = seg.get_region_props(mask)
+        region_prop = seg.get_largest_regions(region_props,1)
+        pm_center = region_prop[0].centroid
+        pillar_centroids[mask_ind,:] = pm_center
+    
+    _,sorted_ind = order_points_clockwise_with_indices(pillar_centroids)
+    
+    for new_ind,og_ind in enumerate(sorted_ind):
+        new_pillar_masks[new_ind,:,:] = pillar_masks[og_ind]
+        new_x_locs[:,new_ind] = x_locs[:,og_ind]
+        new_y_locs[:,new_ind] = y_locs[:,og_ind]
+
+    return new_pillar_masks,new_x_locs,new_y_locs
+
+
+def compute_relative_pillars_dist(pil_x_locs:np.ndarray,pil_y_locs:np.ndarray):
+    """
+    Compute the relative distance (Euclidean) between all pillars.
+
+    """
+
+    if pil_x_locs.shape[1] != pil_y_locs.shape[1]:
+        raise ValueError("The x-location array and y-location array must have the same dimension.")
+    
+    num_frames,num_pillars = pil_x_locs.shape
+
+    # Generate all unique pairs of objects
+    pairs = []
+    for i in range(num_pillars):
+        for j in range(i + 1, num_pillars):
+            pairs.append((i, j))
+
+    # Compute distances for each frame and pair
+    distances = np.zeros((num_frames, len(pairs)))
+    for n in range(num_frames):
+        for r, (i, j) in enumerate(pairs):
+            dx = pil_x_locs[n, i] - pil_x_locs[n, j]
+            dy = pil_y_locs[n, i] - pil_y_locs[n, j]
+            distances[n, r] = np.sqrt(dx**2 + dy**2)
+
+    # Generate pair names
+    pair_names = np.array([f"p{i}-p{j}" for (i, j) in pairs])
+
+    return distances,pair_names
+
+
+def smooth_with_GPR_Matern_kernel(s: np.ndarray) -> np.ndarray:
+    num_frames = s.shape[0]
+    kernel = 1.0 * Matern(length_scale=1.0, length_scale_bounds=(1e-5, 1e2), nu=2.5) + 1.0 * WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-14, 1e1))
+    model = GaussianProcessRegressor(kernel=kernel, normalize_y=True)
+    xdata = np.arange(num_frames).reshape(-1, 1)
+    xhat = xdata
+    ydata = s.reshape(-1, 1)
+    remove_indices = np.where(np.isnan(ydata.reshape(-1)))[0]
+    xdata = np.delete(xdata, remove_indices, axis=0)
+    ydata = np.delete(ydata, remove_indices, axis=0)
+    if len(xdata) == 0 or len(ydata) == 0:
+        return np.full(s.shape, np.nan)  # Return NaN array if no data to fit
+    model.fit(xdata, ydata)
+    yhat = model.predict(xhat)
+    return yhat.reshape(-1)
+
+
+def smooth_relative_pillar_distances_with_GPR(relative_pillar_distances):
+    """
+    Given an array of relative distances between pillars,
+    smooth the distances with GPR (Matern kernel).
+
+    :param relative_pillar_distances: array of relative pillar distances
+    :return GPR_relative_distances: GPR smoothed relative distances
+    """
+    num_frames,num_pairs = relative_pillar_distances.shape
+    GPR_relative_distances = np.zeros((num_frames,num_pairs))
+
+    for pair_ind in range(num_pairs):
+        cur_rel_dist = relative_pillar_distances[:,pair_ind]
+        smoothed_rel_dist = smooth_with_GPR_Matern_kernel(cur_rel_dist)
+        GPR_relative_distances[:,pair_ind] = smoothed_rel_dist
+    
+    return GPR_relative_distances
