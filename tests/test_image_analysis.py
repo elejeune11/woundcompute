@@ -654,7 +654,7 @@ def test_load_contour_coords_none():
         assert contour is None
 
 
-def test_combine_images_runs():
+def test_combine_images():
 
     dir = files_path().joinpath("test_combine_images/visualizations").resolve()
     image_type = "ph1"
@@ -669,16 +669,15 @@ def test_combine_images_runs():
 
     expected_output = dir / f"{image_type}_all_files.png"
     assert expected_output.exists()
-
-    with pytest.raises(ValueError):
-        wrong_dir = files_path().joinpath("test_combine_images").resolve()
-        ia.combine_images(
-            folder_path=wrong_dir,
-            output_path=wrong_dir,
-            image_type="ph1",
-            max_combined_width=1000,
-            individual_max_size=200
-        )
+    
+    wrong_dir = files_path().joinpath("test_combine_images").resolve()
+    ia.combine_images(
+        folder_path=wrong_dir,
+        output_path=wrong_dir,
+        image_type="ph1",
+        max_combined_width=1000,
+        individual_max_size=200
+    )
 
 
 def test_run_all_ph1_broken():

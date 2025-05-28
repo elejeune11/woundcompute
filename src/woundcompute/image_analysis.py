@@ -913,8 +913,11 @@ def show_and_save_pillar_positions(
 ):
     """Given average pillar positions. Will plot and save the image with pillars."""
     _,num_pillars = avg_pos_all_x.shape
-    dark2_colors = plt.get_cmap("Dark2")
-    colors = [dark2_colors(i) for i in np.linspace(0, 1, num_pillars)]
+    # dark2_colors = plt.get_cmap("Dark2")
+    # colors = [dark2_colors(i) for i in np.linspace(0, 1, num_pillars)]
+    colors = ['#377eb8', '#ff7f00', '#4daf4a',
+                  '#f781bf', '#a65628', '#984ea3',
+                  '#999999', '#e41a1c', '#dede00']
     plt.figure()
     plt.imshow(img, cmap=plt.cm.gray)
     for pillar_ind in range(num_pillars):
@@ -1079,7 +1082,8 @@ def combine_images(
     folder_path_str = str(folder_path)
     segments = [s for s in folder_path_str.split('/') if s]  # Split and ignore empty strings
     if "visualizations" not in segments:
-        raise ValueError("The folder path does not contain the 'visualizations' folder. This folder is where segmented images are stored for visualizations.")
+        print("The folder path does not contain the 'visualizations' folder. Skip combining ph1_contour_*.png images.")
+        return
     else:
         vis_index = segments.index("visualizations")
         sample_name = segments[vis_index - 2]
