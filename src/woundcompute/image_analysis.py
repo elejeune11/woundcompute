@@ -923,7 +923,7 @@ def show_and_save_pillar_positions(
     for pillar_ind in range(num_pillars):
         plt.scatter(avg_pos_all_x[0, pillar_ind], avg_pos_all_y[0, pillar_ind], s=40, label=f'Pillar {pillar_ind}',color=colors[pillar_ind])
     plt.title(title, fontdict={'fontsize': 16})
-    plt.legend(loc='upper right', fontsize=10)
+    plt.legend(loc='best', fontsize=10)
     plt.axis('off')
     plt.tight_layout()
     save_path = output_path.joinpath("pillar_positions.png").resolve()
