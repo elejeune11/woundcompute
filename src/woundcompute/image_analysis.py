@@ -1080,6 +1080,7 @@ def combine_images(
 
     # Obtain the sample name from the folder path
     folder_path_str = str(folder_path)
+    print(f'folder_path_str: {folder_path_str}')
     segments = [s for s in folder_path_str.split('/') if s]  # Split and ignore empty strings
     if "visualizations" not in segments:
         print("The folder path does not contain the 'visualizations' folder. Skip combining ph1_contour_*.png images.")
