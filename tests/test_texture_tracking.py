@@ -322,7 +322,7 @@ def test_template_track_all_steps():
         img = add_rect(img, 90, 150, buffer)
         img_list.append(img)
         order_list.append(kk)
-    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, 50)
     assert np.allclose(tracker_x, np.asarray(cent_c_list))
     assert np.allclose(tracker_y, np.asarray(cent_r_list))
 

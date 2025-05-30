@@ -261,14 +261,14 @@ def template_match_tracking(img_masked: np.ndarray, template: np.ndarray) -> Uni
     return np.array([x0, y0, xf, yf]), center_pt
 
 
-def template_track_all_steps(img_list_uint8, pillar_mask, order_list):
+def template_track_all_steps(img_list_uint8, pillar_mask, order_list, pillar_mask_buffer: int = 100):
     time_0 = order_list[0]
     template = seg.mask_to_template(img_list_uint8[time_0], pillar_mask)
     tracker_x = []
     tracker_y = []
     for kk in range(0, len(img_list_uint8)):
         img = img_list_uint8[order_list[kk]]
-        img_masked = seg.mask_img_for_pillar_track(img, pillar_mask)
+        img_masked = seg.mask_img_for_pillar_track(img, pillar_mask, pillar_mask_buffer)
         _, center_pt = template_match_tracking(img_masked, template)
         tracker_x.append(center_pt[0])
         tracker_y.append(center_pt[1])
