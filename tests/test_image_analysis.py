@@ -203,6 +203,33 @@ def test_show_and_save_contour_and_width():
     assert save_path.is_file()
 
 
+def test_show_and_save_contour_and_width_ph1():
+    file_path = glob_ph1("test_single")[0]
+    file = ia.read_tiff(file_path)
+    selection_idx = 4
+    zoom_fcn_idx = 2
+    file_thresh = seg.threshold_array(file, selection_idx)
+    wound_mask = seg.isolate_masks(file_thresh, selection_idx)[1]
+    contour = seg.mask_to_contour(wound_mask)
+    save_path = output_file("test_single", "test_ph1_contour_and_width.png")
+    is_broken = False
+    is_closed = False
+    thresholded_list = [file_thresh]
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, selection_idx)
+    tissue_parameters = com.tissue_parameters_all([tissue_mask_list[0]], [wound_mask_list[0]], zoom_fcn_idx)[0]
+    points = [[tissue_parameters[1], tissue_parameters[3]], [tissue_parameters[2], tissue_parameters[4]]]
+    ia.show_and_save_contour_and_width(file, contour, is_broken, is_closed, points, save_path)
+    assert save_path.is_file()
+
+
+def test_show_and_save_bi_tissue():
+    file_path = glob_ph1("test_before_injury")[0]
+    file = ia.read_tiff(file_path)
+    is_broken=False
+    save_path = output_file("test_single", "test_ph1_tissue_mask_bi.png")
+    ia.show_and_save_bi_tissue(file,is_broken,save_path,0,"test_before_injury")
+
+
 def test_show_and_save_double_contour():
     file_path = glob_brightfield("test_single")[0]
     file = ia.read_tiff(file_path)
@@ -574,6 +601,24 @@ def test_run_segment_with_pillar_info():
     assert is_closed_path.is_file()
 
 
+def test_run_segment_bi():
+    name = "test_ph1_mini_movie_bi"
+    kind = "ph1"
+    folder_path = example_path(name)
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    input_path = path_dict[kind + "_images_path"]
+    input_dict = ia.input_info_to_input_dict(folder_path)
+    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+    output_path = path_dict["segment_" + kind + "_path"]
+    threshold_function_idx = 4
+    zoom_function_idx = 2
+    _, tissue_name_list, _, _, _, _, tissue_path, is_broken_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx, is_bi=True)
+    for tn in tissue_name_list:
+        assert tn.is_file()
+    assert tissue_path.is_file()
+    assert is_broken_path.is_file()
+
+
 def test_save_all_img_with_contour_and_create_gif_bf():
     for kind in ["brightfield", "fluorescent"]:
         zoom_fcn_idx = 1
@@ -623,6 +668,22 @@ def test_numpy_to_list():
     assert len(file_list) == 2
     assert file_list[0].shape == (5, 5)
     assert file_list[1].shape == (5, 5)
+
+
+def test_check_before_injury_folder():
+    test_strings = [
+    "/data/test_tissue_bi/S2/tissue_bi/s001_A02",  # True (two matches)
+    "/data/test_tissue_bio/S2/tissue_biologic",     # False (has letters after _bi)
+    "/data/test_bi_1",                              # True (_bi followed by a number)
+    "/data/test_biologic",                          # False (_bio...)
+    "/data/test_bi",                                # True (ends with _bi)
+    "/data/test_bi/",                               # True (_bi followed by /)
+    ]
+    found = []
+    for s in test_strings:
+        found.append(ia.check_before_injury_folder(s))
+    expected = [True, False, True, False, True, True]
+    assert found == expected
 
 
 def test_run_all():

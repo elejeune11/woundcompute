@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 from scipy import ndimage
 from skimage import exposure, img_as_ubyte
-from skimage.segmentation import clear_border
 from skimage import measure, morphology
 from skimage.filters import gabor_kernel, threshold_otsu, threshold_multiotsu, rank
 from skimage.measure import label, regionprops

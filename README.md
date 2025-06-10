@@ -59,7 +59,7 @@ python --version
 ```
 6. Update some base modules (just in case)
 ```bash
-pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade pip setuptools wheel
 ```
 
 Note that once you have created this virtual environment you can ``activate`` and ``deactivate`` it in the future -- it is not necessary to create a new virtual environment each time you want to run this code, you can simply type ``conda activate wound-compute-env`` and then pick up where you left off (see also: [conda cheat sheet](https://docs.conda.io/projects/conda/en/4.6.0/_downloads/52a95608c49671267e40c689e0bc00ca/conda-cheatsheet.pdf)).
@@ -70,7 +70,7 @@ Note that once you have created this virtual environment you can ``activate`` an
 2. Type the command ``ls`` and make sure that the file ``pyproject.toml`` is in the current directory.
 3. Now, create an editable install of wound compute:
 ```bash
-pip install -e .
+python -m pip install -e .
 ```
 4. If you would like to see what packages this has installed, you can type ``pip list``
 5. You can test that the code is working with pytest (all tests should pass):
@@ -236,10 +236,10 @@ The files ``pillar_tracker_x.txt`` and ``pillar_tracker_y.txt`` contain the x an
 * ``files/sample_dataset/s*/segment_ph1/visualization/ph1_contour_*.png``
 * ``files/sample_dataset/s*/segment_ph1/visualization/ph1_contour.gif``
 
-The file ``ph1_contour.gif`` (shown below) contains all images from ``ph1_contour_*.png`` showing the wound margin over time. The ``.gif`` also includes visualizations notifying when the microtissue is broken, or when the wound is closed.
+The file ``ph1_contour.gif`` (shown below) contains all images from ``ph1_contour_*.png`` showing the wound margin and pillars tracking over time. The ``.gif`` also includes visualizations notifying when the microtissue is broken, or when the wound is closed.
 
 <p align = "center">
-<img alt="contour visualization" src="tutorials/figs/s22_B04_ph1_contour.gif" width="80%" />
+<img alt="contour visualization" src="tutorials/figs/via1_s18_vis.gif" width="85%" />
 </p>
 
 ## Validation <a name="validation"></a>
