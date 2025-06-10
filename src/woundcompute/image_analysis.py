@@ -829,11 +829,12 @@ def run_segment(
         _ = save_all_numpy(output_path, "pillar", pillar_mask_list)
 
         # refine tissue masks by subtracting moving pillars
-        tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
-            tissue_mask_list, pillar_mask_list, 
-            pillar_pos_x, 
-            pillar_pos_y
-        )
+        if pillar_pos_x is not None and pillar_pos_y is not None:
+            tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
+                tissue_mask_list, pillar_mask_list, 
+                pillar_pos_x, 
+                pillar_pos_y
+            )
     else:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
@@ -893,11 +894,12 @@ def run_segment_bi(
         _ = save_all_numpy(output_path, "pillar", pillar_mask_list)
 
         # refine tissue masks by subtracting moving pillars
-        tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
-            tissue_mask_list, pillar_mask_list, 
-            pillar_pos_x, 
-            pillar_pos_y
-        )
+        if pillar_pos_x is not None and pillar_pos_y is not None:
+            tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
+                tissue_mask_list, pillar_mask_list, 
+                pillar_pos_x, 
+                pillar_pos_y
+            )
     else:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
