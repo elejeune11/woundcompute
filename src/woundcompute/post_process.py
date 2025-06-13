@@ -3,7 +3,7 @@ from pathlib import Path
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, Matern
 from woundcompute import segmentation as seg
-from typing import List
+from typing import List,Tuple
 
 
 def get_wound_area(output_path: Path) -> np.ndarray:
@@ -345,3 +345,86 @@ def smooth_relative_pillar_distances_with_GPR(relative_pillar_distances):
         GPR_relative_distances[:,pair_ind] = smoothed_rel_dist
     
     return GPR_relative_distances
+
+
+def compute_pillar_disps_between_frames(pillar_x_locs:np.ndarray,pillar_y_locs:np.ndarray)->np.ndarray:
+    """
+    Computes the displacement of pillars between consecutive frames.
+    
+    For each frame (except the first), this function calculates how much each pillar has moved
+    from its position in the previous frame. The first frame will have zero displacement
+    since there's no previous frame to compare with.
+    
+    :param pillar_x_locs: np.ndarray
+        A 2D array of shape (num_frames, num_pillars) containing x-coordinates of pillars
+        for each frame. Each row represents a frame, each column represents a pillar.
+    :param pillar_y_locs: np.ndarray
+        A 2D array of shape (num_frames, num_pillars) containing y-coordinates of pillars
+        for each frame. Must have same dimensions as pillar_x_locs.
+        
+    :return tuple[np.ndarray, np.ndarray]:
+        A tuple containing two 2D numpy arrays:
+        - px_disp_changing_ref: Array of x-axis displacements between frames
+        - py_disp_changing_ref: Array of y-axis displacements between frames
+        Both arrays have same shape as input arrays, with first row being zeros.
+    """
+    px_disp_between_frames = np.zeros_like(pillar_x_locs)
+    py_disp_between_frames = np.zeros_like(pillar_y_locs)
+
+    num_frames,num_pillars = pillar_x_locs.shape
+
+    for frame_ind in range(num_frames):
+        if frame_ind == num_frames-1:
+            break
+        px_disp_between_frames[frame_ind+1,:] = pillar_x_locs[frame_ind+1,:] - pillar_x_locs[frame_ind,:]
+        py_disp_between_frames[frame_ind+1,:] = pillar_y_locs[frame_ind+1,:] - pillar_y_locs[frame_ind,:]
+    
+    return px_disp_between_frames,py_disp_between_frames
+
+
+def check_large_pillar_disps(px_disps:np.ndarray,py_disps:np.ndarray,disp_thresh:int=10)->Tuple[bool,np.ndarray]:
+    """
+    This function takes the absolute x displacements and y displacements of pillars, and determine potential large background
+    shift according to a threshold.
+    """
+    px_disps = np.abs(px_disps)
+    py_disps = np.abs(py_disps)
+    large_disp_frame_ind_x = np.argwhere(px_disps>disp_thresh)[:,0]
+    large_disp_frame_ind_y = np.argwhere(py_disps>disp_thresh)[:,0]
+    large_disp_frame_ind = np.unique(np.concatenate((large_disp_frame_ind_x,large_disp_frame_ind_y)))
+
+    if large_disp_frame_ind.size == 0:
+        return False,large_disp_frame_ind
+    else:
+        return True,large_disp_frame_ind
+    
+
+def check_potential_large_background_shift(pillar_x_locs:np.ndarray,pillar_y_locs:np.ndarray,disp_thresh:int=10)->Tuple[bool,np.ndarray]:
+    """
+    Detects potential large background shifts by analyzing pillar displacements between consecutive frames.
+    
+    This function first computes the displacement of each pillar between consecutive frames, then identifies
+    any frames where displacements exceed the specified threshold, indicating a potential large background shift.
+    
+    :param pillar_x_locs: np.ndarray
+        A 2D array of shape (num_frames, num_pillars) containing x-coordinates of pillars for each frame.
+        Each row represents a frame, each column represents a pillar.
+    :param pillar_y_locs: np.ndarray
+        A 2D array of shape (num_frames, num_pillars) containing y-coordinates of pillars for each frame.
+        Must have same dimensions as pillar_x_locs.
+    :param disp_thresh: int, optional
+        The displacement threshold (in pixels) for considering a movement as a potential large shift.
+        Default is 10 pixels.
+        
+    :return: Tuple[bool, np.ndarray]
+        A tuple containing:
+        - bool: True if any frame contains pillar displacements exceeding the threshold (potential shift detected),
+                False otherwise
+        - np.ndarray: Array of frame indices where large displacements were detected (empty if none found)
+        
+    :raises ValueError:
+        If pillar_x_locs and pillar_y_locs have different shapes
+    """
+    px_disp_between_frames,py_disp_between_frames = compute_pillar_disps_between_frames(pillar_x_locs,pillar_y_locs)
+    is_potential_shift,large_disp_frame_ind = check_large_pillar_disps(px_disp_between_frames,py_disp_between_frames,disp_thresh)
+    return is_potential_shift,large_disp_frame_ind

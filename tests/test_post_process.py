@@ -453,3 +453,147 @@ def test_smooth_relative_pillar_distances_with_GPR_single_pair():
     
     assert smoothed.shape == (num_frames, 1)
     assert not np.any(np.isnan(smoothed))
+
+
+def test_compute_pillar_disps_between_frames():
+    pillar_x_locs = pillar_y_locs= np.array([
+        [0,0,0,0],
+        [1,1,2,2],
+        [2,2,4,4]
+    ])
+    known_x_disps = known_y_disps = np.array([
+        [0,0,0,0],
+        [1,1,2,2],
+        [1,1,2,2]
+    ])
+    found_x_disps,found_y_disps = pp.compute_pillar_disps_between_frames(pillar_x_locs,pillar_y_locs)
+    assert np.allclose(found_x_disps,known_x_disps)
+    assert np.allclose(found_y_disps,known_y_disps)
+
+
+def test_no_displacements_above_threshold():
+    """Test when no displacements exceed the threshold"""
+    px_disps = np.array([1, 2, 3, 4])
+    py_disps = np.array([1, 2, 3, 4])
+    disp_thresh = 10
+    expected = (False, np.array([]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_single_x_displacement_above_threshold():
+    """Test detection of single x displacement above threshold"""
+    px_disps = np.array([11, 2, 3, 4])
+    py_disps = np.array([1, 2, 3, 4])
+    disp_thresh = 10
+    expected = (True, np.array([0]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_single_y_displacement_above_threshold():
+    """Test detection of single y displacement above threshold"""
+    px_disps = np.array([1, 2, 3, 4])
+    py_disps = np.array([1, 12, 3, 4])
+    disp_thresh = 10
+    expected = (True, np.array([1]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_multiple_displacements_both_axes():
+    """Test multiple displacements in both axes with deduplication"""
+    px_disps = np.array([11, 2, 13, 4])
+    py_disps = np.array([1, 12, 3, 14])
+    disp_thresh = 10
+    expected = (True, np.array([0, 1, 2, 3]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_edge_case_at_threshold():
+    """Test values exactly at threshold (should not be counted)"""
+    px_disps = np.array([10, 2, 3, 4])
+    py_disps = np.array([1, 2, 10, 4])
+    disp_thresh = 10
+    expected = (False, np.array([]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_empty_input_arrays():
+    """Test handling of empty input arrays"""
+    px_disps = np.array([])
+    py_disps = np.array([])
+    disp_thresh = 10
+    expected = (False, np.array([]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_absolute_value_handling():
+    """Test that negative displacements are properly handled with absolute values"""
+    px_disps = np.array([-11, 2, 3, 4])
+    py_disps = np.array([1, -12, 3, 4])
+    disp_thresh = 10
+    expected = (True, np.array([0, 1]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_duplicate_frame_indices():
+    """Test that the same frame index from both axes is only reported once"""
+    px_disps = np.array([11, 2, 3, 4])
+    py_disps = np.array([11, 2, 3, 4])
+    disp_thresh = 10
+    expected = (True, np.array([0]))
+    
+    result = pp.check_large_pillar_disps(px_disps, py_disps, disp_thresh)
+    assert result[0] == expected[0]
+    np.testing.assert_array_equal(result[1], expected[1])
+
+
+def test_check_potential_large_background_shift():
+    """Test detection of potential large background shifts from pillar displacements"""
+    # Setup test data - 3 frames, 2 pillars
+    pillar_x_locs = np.array([
+        [100, 200],  # Frame 0
+        [105, 205],  # Frame 1 (small movement - no shift)
+        [120, 220]   # Frame 2 (large movement - should trigger shift)
+    ])
+    pillar_y_locs = np.array([
+        [50, 150],   # Frame 0
+        [55, 155],   # Frame 1 (small movement - no shift)
+        [50, 150]    # Frame 2 (y movement within threshold)
+    ])
+    
+    # Test with default threshold (10 pixels)
+    result_bool, result_frames = pp.check_potential_large_background_shift(
+        pillar_x_locs, pillar_y_locs
+    )
+    print(result_frames)
+    
+    # Verify results
+    assert result_bool is True  # Should detect shift in frame 2
+    assert np.array_equal(result_frames, np.array([2]))  # Frame 1->2 displacement
+    
+    # Test with higher threshold (should not detect shift)
+    result_bool, result_frames = pp.check_potential_large_background_shift(
+        pillar_x_locs, pillar_y_locs, disp_thresh=25
+    )
+    assert result_bool is False
+    assert len(result_frames) == 0

@@ -603,6 +603,21 @@ def test_check_broken_tissue_all():
         assert bb is False
 
 
+def test_check_broken_tissue_with_pillars_no_tissue():
+    tm = np.zeros((20,20))
+    pillar_mask_list = [np.zeros((20,20))]
+    is_broken = com.check_broken_tissue_with_pillars(tm,pillar_mask_list)
+    assert is_broken is True
+
+
+def test_check_broken_tissue_with_pillars_tiny_tissue():
+    tm = np.zeros((100,100))
+    tm[50,50] = 1
+    pillar_mask_list = [np.zeros((100,100))]
+    is_broken = com.check_broken_tissue_with_pillars(tm,pillar_mask_list)
+    assert is_broken is True
+
+
 def test_is_broken_example():
     folder_path = example_path("test_ph1_mini_movie_broken")
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)

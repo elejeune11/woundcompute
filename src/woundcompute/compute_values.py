@@ -537,8 +537,7 @@ def check_broken_tissue_with_pillars(
     # test if broken via being on 1 or 2 pillars (short)
     pix_mask = tissue_mask.shape[0] * tissue_mask.shape[1]
     if area < pix_mask * 0.1:
-        is_broken = True
-        return is_broken
+        return True
     # test if broken via being on 2 pillars (long)
     if tissue_mask_orig is None:
         mask_row_center = tissue_mask.shape[0] / 2.0

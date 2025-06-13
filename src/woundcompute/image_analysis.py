@@ -1064,7 +1064,8 @@ def show_and_save_relative_pillar_distances(
     relative_distances:np.ndarray,
     GPR_relative_distances:np.ndarray,
     rel_dist_pair_names:np.ndarray,
-    output_path:Path
+    output_path:Path,
+    is_potential_bg_shift:bool=False,
 ):
     """
     Given relative distances and GPR smoothed distances, will plot and save the figure.
@@ -1096,6 +1097,14 @@ def show_and_save_relative_pillar_distances(
         axes[pair_ind].set_ylabel('distance between pillars (pixels)')
         axes[pair_ind].grid('on',ls=':')
     plt.suptitle('Relative Pillar Distances',fontsize=16)
+
+    if is_potential_bg_shift:
+        plt.figtext(0.02, 0.98, 
+                   r"$\bf{Warning}$: Potential large background shift detected."+"\nPlease verify your experimental images for accuracy.",
+                   ha='left', va='top', 
+                   fontsize=10, color='red',
+                   bbox=dict(facecolor='white', alpha=0.8, edgecolor='red'))
+
     plt.tight_layout()
     plt.savefig(output_path.joinpath("relative_pillar_distances.png").resolve())
     return
@@ -1137,9 +1146,18 @@ def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_
     pillar_mask_list, avg_pos_all_x, avg_pos_all_y = pp.rearrange_pillars_indexing(
         pillar_mask_list,avg_pos_all_x,avg_pos_all_y
     )
+
+    is_potential_bg_shift,large_shift_frame_ind = pp.check_potential_large_background_shift(avg_pos_all_x,avg_pos_all_y)
+    if is_potential_bg_shift is True:
+        folder_path_for_warning = output_path.parent.parent.parent
+        sample_name = output_path.parent.name
+        basename_exp = output_path.parent.parent.name
+        warning_folder_path = create_folder(folder_path_for_warning, "warnings_for_"+basename_exp)
+        _ = save_bg_shift_warning(warning_folder_path,sample_name,large_shift_frame_ind)
+
     relative_distances,rel_dist_pair_names = pp.compute_relative_pillars_dist(avg_pos_all_x,avg_pos_all_y)
     GPR_relative_distances = pp.smooth_relative_pillar_distances_with_GPR(relative_distances)
-    show_and_save_relative_pillar_distances(relative_distances,GPR_relative_distances,rel_dist_pair_names,output_path)
+    show_and_save_relative_pillar_distances(relative_distances,GPR_relative_distances,rel_dist_pair_names,output_path,is_potential_bg_shift)
     show_and_save_pillar_positions(first_img, avg_pos_all_x, avg_pos_all_y, output_path)
 
     # save data
@@ -1156,6 +1174,51 @@ def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_
     np.savetxt(str(path_relative_distances_pair_names), rel_dist_pair_names,fmt="%s")
 
     return pillar_mask_list, avg_pos_all_x, avg_pos_all_y, path_pos_x, path_pos_y
+
+
+def save_bg_shift_warning(warning_folder_path: Path, sample_name: str, large_shift_frame_ind: np.ndarray):
+    """
+    Save a warning text file about potential large background shifts between frames.
+    
+    Parameters:
+        warning_folder_path (Path): Path to the folder where the warning file will be saved
+        sample_name (str): Sample name used for the output filename
+        large_shift_frame_ind (np.ndarray): Array of frame indices where potential large shifts occur
+                                           (1-based indexing, shifts occur between frame_ind and frame_ind+1)
+    """
+    # Create the output filename
+    output_filename = f"{sample_name}_bg_shift_warning.txt"
+    output_path = warning_folder_path / output_filename
+    
+    # Prepare the warning message
+    warning_lines = [
+        f"Warning: Potential large background shifts detected for sample {sample_name}",
+        "------------------------------------------------------------",
+        "",
+        "The following frame transitions may have large background shifts:",
+        "(Note: Frame numbers start from 1)",
+        ""
+    ]
+    
+    # Add each shift location to the message
+    for frame_ind in large_shift_frame_ind:
+        warning_lines.append(f"- Between frame {frame_ind} and frame {frame_ind + 1}")
+    
+    # Add some additional notes
+    warning_lines.extend([
+        "",
+        "Note: These are potential shifts that may need visual inspection."
+    ])
+    
+    # Combine all lines with newline characters
+    warning_text = "\n".join(warning_lines)
+    
+    # Write to file
+    with open(output_path, 'w') as f:
+        f.write(warning_text)
+    
+    print(f"Warning file saved to: {output_path}")
+    return output_path
 
 
 def show_and_save_tracking(

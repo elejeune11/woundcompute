@@ -222,6 +222,25 @@ def test_show_and_save_contour_and_width_ph1():
     assert save_path.is_file()
 
 
+def test_show_and_save_contour_and_width_ph1_high_res():
+    file_path = glob_ph1("test_ph1_movie_mini_large_bg_shift")[0]
+    file = ia.read_tiff(file_path)
+    selection_idx = 4
+    zoom_fcn_idx = 2
+    file_thresh = seg.threshold_array(file, selection_idx)
+    wound_mask = seg.isolate_masks(file_thresh, selection_idx)[1]
+    contour = seg.mask_to_contour(wound_mask)
+    save_path = output_file("test_single", "test_high_res_im.png")
+    is_broken = False
+    is_closed = False
+    thresholded_list = [file_thresh]
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, selection_idx)
+    tissue_parameters = com.tissue_parameters_all([tissue_mask_list[0]], [wound_mask_list[0]], zoom_fcn_idx)[0]
+    points = [[tissue_parameters[1], tissue_parameters[3]], [tissue_parameters[2], tissue_parameters[4]]]
+    ia.show_and_save_contour_and_width(file, contour, is_broken, is_closed, points, save_path)
+    assert save_path.is_file()
+
+
 def test_show_and_save_bi_tissue():
     file_path = glob_ph1("test_before_injury")[0]
     file = ia.read_tiff(file_path)
@@ -853,7 +872,8 @@ def test_show_and_save_relative_pillar_distances_runs():
         relative_distances,
         GPR_relative_distances,
         rel_dist_pair_names,
-        output_path
+        output_path,
+        True
     )
 
     # Assert
@@ -897,6 +917,26 @@ def test_run_texture_tracking_pillars():
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
     assert path_disp_y.is_file()
+
+
+def test_run_texture_tracking_pillars_large_bg_shift():
+    folder_path = example_path("test_ph1_movie_mini_large_bg_shift")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "pillar_track_ph1")
+    threshold_function_idx = 4
+    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(input_path, output_path, threshold_function_idx)
+    assert len(pillars_mask_list) == 4
+    assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
+    assert path_disp_x.is_file()
+    assert path_disp_y.is_file()
+
+
+def test_save_bg_shift_warning():
+    folder_path = example_path("test_ph1_movie_mini_large_bg_shift")
+    sample_name = "test_sample"
+    large_shift_frame_ind = np.array([1])
+    output_p = ia.save_bg_shift_warning(folder_path,sample_name,large_shift_frame_ind)
+    assert output_p.is_file()
 
 
 def test_show_and_save_tracking():
