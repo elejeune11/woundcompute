@@ -265,16 +265,70 @@ def dilate_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
     return dilated_array
 
 
-def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 3, ff_mult: float = 0.4) -> np.ndarray:
-    gabor_all = np.zeros(array.shape)
-    for ff in range(0, ff_max):
-        frequency = 0.2 + ff * ff_mult
+# def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 3, ff_mult: float = 0.4) -> np.ndarray:
+#     gabor_all = np.zeros(array.shape)
+#     for ff in range(0, ff_max):
+#         frequency = 0.2 + ff * ff_mult
+#         for tt in range(0, theta_range):
+#             theta = tt * np.pi / (theta_range - 1)
+#             # filt_real, _ = gabor(array, frequency=frequency, theta=theta)
+#             g_kernel = gabor_kernel(frequency=frequency,theta=theta)
+#             filt_real = ndimage.convolve(array,np.real(g_kernel),mode='reflect',cval=0)
+#             gabor_all += filt_real
+#     return gabor_all
+
+
+def gabor_filter(
+    image_array: np.ndarray, 
+    theta_range: int = 17, 
+    ff_num: int = 3, 
+    ff_mult: float = 0.4
+) -> np.ndarray:
+
+    """
+    Convolves a series of Gabor kernels to an input image at multiple frequencies
+    and orientations. Returns the sum of the images from all Gabor convolutions. 
+    
+    Parameters:
+    -----------
+    image_array : np.ndarray
+        Input grayscale image as a 2D numpy array (height x width)
+    theta_range : int, optional (default=17)
+        Number of orientation angles between 0 rad and pi rad
+    ff_num : int, optional (default=3)
+        Number of frequency scales to apply
+    ff_mult : float, optional (default=0.4)
+        Frequency multiplier to increment per ff_num
+        
+    Returns:
+    --------
+    np.ndarray
+        Filtered image with same dimensions as input, representing the combined
+        response across all orientations and scales
+    """
+    # Initialize output array with same shape as input
+    gabor_all = np.zeros(image_array.shape)
+    
+    # Apply filters at multiple frequencies
+    for ff in range(0, ff_num):
+        frequency = 0.2 + ff * ff_mult  # Altering the frequency
+
+        # Apply filters at multiple orientations
         for tt in range(0, theta_range):
-            theta = tt * np.pi / (theta_range - 1)
-            # filt_real, _ = gabor(array, frequency=frequency, theta=theta)
-            g_kernel = gabor_kernel(frequency=frequency,theta=theta)
-            filt_real = ndimage.convolve(array,np.real(g_kernel),mode='reflect',cval=0)
+            theta = tt * np.pi / (theta_range - 1) # Altering the orientation
+            
+            # Generate Gabor kernel and convolve with image
+            g_kernel = gabor_kernel(frequency=frequency, theta=theta)
+            filt_real = ndimage.convolve(
+                image_array,
+                np.real(g_kernel), # Use only real component of the Gabor kernel
+                mode='reflect',  # Handle borders by mirroring
+                cval=0          # Default value for points outside
+            )
+
+            # Accumulate responses across all frequencies/orientations
             gabor_all += filt_real
+    
     return gabor_all
 
 
