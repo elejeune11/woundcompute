@@ -29,7 +29,7 @@ def get_is_closed(output_path: Path) -> np.ndarray:
 
 def smooth_with_GPR(s: np.ndarray) -> np.ndarray:
     num_frames = s.shape[0]
-    kernel = 1.0 * RBF(length_scale=1.0, length_scale_bounds=(1e-5, 1e1)) + 1.0 * WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-5, 1e1))
+    kernel = 1.0 * RBF(length_scale=1.0, length_scale_bounds=(1e-5, 1e2)) + 1.0 * WhiteKernel(noise_level=1.0, noise_level_bounds=(1e-14, 1e1))
     model = GaussianProcessRegressor(kernel=kernel, normalize_y=True)
     xdata = np.arange(num_frames).reshape(-1, 1)
     xhat = xdata

@@ -821,6 +821,7 @@ def run_segment(
     wound_mask_list = seg.contour_to_mask_all(img_list[0],contour_list)
     # wound parameters
     area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(img_list[0], contour_list)
+    wound_area_smoothed_GPR = pp.smooth_with_GPR(np.array(area_list))
 
     if pillar_mask_list:
         # check if the tissue is broken
@@ -847,10 +848,14 @@ def run_segment(
     contour_name_list = save_all_numpy(output_path, "contour_coords", contour_list)
     # save lists
     area_path = save_list(output_path, "wound_area_vs_frame", area_list)
+    smoothed_area_path = save_list(output_path,"wound_area_vs_frame_GPR",wound_area_smoothed_GPR)
+    smoothed_area_path_png = save_list(output_path, "wound_area_vs_frame", wound_area_smoothed_GPR)
     ax_maj_path = save_list(output_path, "wound_major_axis_length_vs_frame", axis_major_length_list)
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     tissue_path = save_list(output_path, "tissue_parameters_vs_frame", tissue_parameters_list)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
+    # save pngs (plots)
+    show_and_save_wound_area(np.array(area_list),wound_area_smoothed_GPR,output_path)
     # check if the wound is closed
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
     is_closed_path = save_list(output_path, "is_closed_vs_frame", is_closed_list)
@@ -915,6 +920,40 @@ def run_segment_bi(
     wound_name_list=contour_name_list=area_path=ax_maj_path=ax_min_path=is_closed_path=contour_list=None
     return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, contour_list, tissue_parameters_list, is_broken_list, is_closed_list
 
+
+def show_and_save_wound_area(
+    wound_area:np.ndarray,
+    wound_area_smoothed_GPR:np.ndarray,
+    output_path:Path,
+):
+    """
+    Given relative distances and GPR smoothed distances, will plot and save the figure.
+    Args:
+        relative_distances (np.ndarray): Array of relative distances between pillars for each frame.
+        GPR_relative_distances (np.ndarray): GPR smoothed relative distances.
+        rel_dist_pair_names (np.ndarray): Names of the pillar pairs for which distances are computed.
+        output_path (Path): Path to save the figure.
+    Returns:
+        None
+    """
+    num_frames = len(wound_area)
+    num_pt_GPR = len(wound_area_smoothed_GPR)
+
+    frame_steps = np.linspace(0,num_frames-1,num_frames,dtype=int)
+    GPR_steps = np.linspace(0,num_pt_GPR-1,num_pt_GPR,dtype=int)
+
+    fig,ax = plt.subplots(nrows=1,ncols=1,figsize=(6,4))
+
+    ax.scatter(frame_steps,wound_area,c='black',s=8,label='wound area')
+    ax.plot(GPR_steps,wound_area_smoothed_GPR,c='red',linewidth=1,label='GPR smoothed')
+    ax.set_title('Wound area over time')
+    ax.set_xlabel('frame number')
+    ax.set_ylabel('wound area (pixels)')
+    ax.grid('on',ls=':')
+
+    plt.tight_layout()
+    plt.savefig(output_path.joinpath("wound_area.png").resolve())
+    return
 
 # def check_wound_closed(tissue_mask: np.ndarray) -> bool:
 #     rad_1 = 1  # close single pixel holes
@@ -1099,7 +1138,7 @@ def show_and_save_relative_pillar_distances(
     plt.suptitle('Relative Pillar Distances',fontsize=16)
 
     if is_potential_bg_shift:
-        plt.figtext(0.02, 0.98, 
+        plt.figtext(0.02, 0.99, 
                    r"$\bf{Warning}$: Potential large background shift detected."+"\nPlease verify your experimental images for accuracy.",
                    ha='left', va='top', 
                    fontsize=10, color='red',
@@ -1129,7 +1168,7 @@ def show_and_save_pillar_positions(
     for pillar_ind in range(num_pillars):
         plt.scatter(avg_pos_all_x[0, pillar_ind], avg_pos_all_y[0, pillar_ind], s=40, label=f'Pillar {pillar_ind}',color=colors[pillar_ind])
     plt.title(title, fontdict={'fontsize': 16})
-    plt.legend(loc='best', fontsize=10)
+    plt.legend(loc=(0.5,0.9), fontsize=10)
     plt.axis('off')
     plt.tight_layout()
     save_path = output_path.joinpath("pillar_positions.png").resolve()

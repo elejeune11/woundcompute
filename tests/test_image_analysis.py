@@ -638,6 +638,25 @@ def test_run_segment_bi():
     assert is_broken_path.is_file()
 
 
+def test_show_and_save_wound_area():
+    # Arrange
+    num_frames = 50
+    wound_area = np.random.rand(num_frames,)
+    GPR_wound_area = np.random.rand(num_frames)
+    output_path = files_path()
+
+    # Act
+    ia.show_and_save_wound_area(
+        wound_area,
+        GPR_wound_area,
+        output_path
+    )
+
+    # Assert
+    output_file = output_path / "wound_area.png"
+    assert output_file.exists()
+
+
 def test_save_all_img_with_contour_and_create_gif_bf():
     for kind in ["brightfield", "fluorescent"]:
         zoom_fcn_idx = 1
@@ -858,7 +877,7 @@ def test_get_subplot_dims(n_plots, expected):
     assert ia.get_subplot_dims(n_plots) == expected
 
 
-def test_show_and_save_relative_pillar_distances_runs():
+def test_show_and_save_relative_pillar_distances():
     # Arrange
     num_frames = 50
     num_pairs = 6
@@ -881,7 +900,7 @@ def test_show_and_save_relative_pillar_distances_runs():
     assert output_file.exists()
 
 
-def test_show_and_save_pillar_positions_runs():
+def test_show_and_save_pillar_positions():
     # Arrange
     height, width = 200, 200
     img = np.random.randint(0, 255, size=(height, width), dtype=np.uint8)
