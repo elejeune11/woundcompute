@@ -526,6 +526,8 @@ def save_all_img_with_contour_and_width(
 
     if pillar_masks is not None:
         pillar_contours_list = seg.contour_all(pillar_masks)
+    else:
+        pillar_contours_list = None
     
     for kk in range(0, len(img_list)):
         img = img_list[kk]
@@ -1527,6 +1529,7 @@ def run_all(folder_path: Path) -> List:
     else:
         avg_pos_all_x = None
         avg_pos_all_y = None
+        pillar_masks_list = None
     if input_dict["segment_ph1"] is True:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["segment_ph1_path"]
