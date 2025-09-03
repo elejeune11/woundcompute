@@ -299,6 +299,11 @@ def test_yml_to_dict():
     assert db["bf_seg_with_fl_seg_visualize"] is False
     assert db["bf_track_with_fl_seg_visualize"] is False
     assert db["track_pillars_ph1"] is False
+    assert db["segment_dic"] is False
+    assert db["seg_dic_version"] == 1
+    assert db["seg_dic_visualize"] is False
+    assert db["track_dic_visualize"] is False
+    assert db["track_pillars_dic"] is False
 
 
 def test_create_folder():
@@ -638,6 +643,32 @@ def test_run_segment_bi():
     assert is_broken_path.is_file()
 
 
+def test_run_segment_dic():
+    name = "test_dic_mini_movie"
+    kind = "dic"
+    folder_path = example_path(name)
+    path_dict = ia.input_info_to_input_paths(folder_path)
+    input_path = path_dict[kind + "_images_path"]
+    input_dict = ia.input_info_to_input_dict(folder_path)
+    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+    output_path = path_dict["segment_" + kind + "_path"]
+    threshold_function_idx = 6
+    zoom_function_idx = 2
+    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx)
+    for wn in wound_name_list:
+        assert wn.is_file()
+    for tn in tissue_name_list:
+        assert tn.is_file()
+    for cn in contour_name_list:
+        assert cn.is_file()
+    assert area_path.is_file()
+    assert ax_maj_path.is_file()
+    assert ax_min_path.is_file()
+    assert tissue_path.is_file()
+    assert is_broken_path.is_file()
+    assert is_closed_path.is_file()
+
+
 def test_show_and_save_wound_area():
     # Arrange
     num_frames = 50
@@ -948,15 +979,6 @@ def test_run_texture_tracking_pillars_large_bg_shift():
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
     assert path_disp_y.is_file()
-
-
-def test_save_bg_shift_warning():
-    folder_path = example_path("test_ph1_movie_mini_large_bg_shift")
-    sample_name = "test_sample"
-    large_shift_frame_ind = np.array([1])
-    _, _ = ia.run_all(folder_path)
-    output_p = ia.save_bg_shift_warning(folder_path,sample_name,large_shift_frame_ind)
-    assert output_p.is_file()
 
 
 def test_show_and_save_tracking():

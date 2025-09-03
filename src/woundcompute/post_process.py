@@ -1,9 +1,9 @@
 import numpy as np
+from typing import List,Tuple
 from pathlib import Path
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import RBF, WhiteKernel, Matern
 from woundcompute import segmentation as seg
-from typing import List,Tuple
 
 
 def get_wound_area(output_path: Path) -> np.ndarray:
@@ -338,12 +338,10 @@ def smooth_relative_pillar_distances_with_GPR(relative_pillar_distances):
     """
     num_frames,num_pairs = relative_pillar_distances.shape
     GPR_relative_distances = np.zeros((num_frames,num_pairs))
-
     for pair_ind in range(num_pairs):
         cur_rel_dist = relative_pillar_distances[:,pair_ind]
         smoothed_rel_dist = smooth_with_GPR_Matern_kernel(cur_rel_dist)
         GPR_relative_distances[:,pair_ind] = smoothed_rel_dist
-    
     return GPR_relative_distances
 
 

@@ -16,6 +16,7 @@ from woundcompute import segmentation as seg
 from woundcompute import compute_values as com
 from woundcompute import texture_tracking as tt
 from woundcompute import post_process as pp
+from woundcompute import warnings_handler as warn
 
 
 def hello_wound_compute() -> str:
@@ -309,17 +310,25 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             "ph1_seg_with_fl_seg_visualize",
             "ph1_track_with_fl_seg_visualize",
             "zoom_type",
-            "track_pillars_ph1"
+            "track_pillars_ph1",
+            "segment_dic",
+            "seg_dic_version",
+            "seg_dic_visualize",
+            "track_pillars_dic",
+            "track_dic_visualize",
         )
 
         # has_required_keys = all(tuple(map(lambda x: db.get(x) != None, required_keys)))
         # keys_tuple = tuple(map(lambda x: db.get(x), required_keys))
         # has_required_keys = all(tuple(map(lambda x: db.get(x), required_keys)))
         found_keys = tuple(db.keys())
-        keys_exist = tuple(map(lambda x: x in found_keys, required_keys))
-        has_required_keys = all(keys_exist)
-        if not has_required_keys:
-            raise KeyError(f"Input files must have these keys defined: {required_keys}")
+        missing_keys = list(set(required_keys) - set(found_keys))
+        if len(missing_keys) > 0:
+            raise KeyError(f"Input .yaml files are missing the following required keys: {missing_keys}")
+        # keys_exist = tuple(map(lambda x: x in found_keys, required_keys))
+        # has_required_keys = all(keys_exist)
+        # if not has_required_keys:
+        #     raise KeyError(f"Input files must have these keys defined: {required_keys}")
     return db
 
 
@@ -347,16 +356,25 @@ def input_info_to_input_paths(folder_path: Path) -> dict:
         path_dict["brightfield_images_path"] = bf_path
     else:
         path_dict["brightfield_images_path"] = None
+
     fl_path = folder_path.joinpath("fluorescent_images").resolve()
     if fl_path.is_dir():
         path_dict["fluorescent_images_path"] = fl_path
     else:
         path_dict["fluorescent_images_path"] = None
+
     ph1_path = folder_path.joinpath("ph1_images").resolve()
     if ph1_path.is_dir():
         path_dict["ph1_images_path"] = ph1_path
     else:
         path_dict["ph1_images_path"] = None
+
+    dic_path = folder_path.joinpath("dic_images").resolve()
+    if dic_path.is_dir():
+        path_dict["dic_images_path"] = dic_path
+    else:
+        path_dict["dic_images_path"] = None
+    
     return path_dict
 
 
@@ -425,6 +443,9 @@ def input_info_to_output_paths(folder_path: Path, input_dict: dict) -> dict:
         path_dict["track_ph1_vis_path"] = track_ph1_vis_path
     else:
         path_dict["track_ph1_vis_path"] = None
+    if input_dict["track_pillars_dic"] is True:
+        track_pillars_dic_path = create_folder(folder_path, "track_pillars_dic")
+        path_dict["track_pillars_dic_path"] = track_pillars_dic_path
     if input_dict["bf_seg_with_fl_seg_visualize"] is True:
         bf_seg_with_fl_seg_visualize_path = create_folder(folder_path, "bf_seg_with_fl_seg_visualize")
         path_dict["bf_seg_with_fl_seg_visualize_path"] = bf_seg_with_fl_seg_visualize_path
@@ -450,6 +471,14 @@ def input_info_to_output_paths(folder_path: Path, input_dict: dict) -> dict:
         path_dict["track_pillars_ph1_path"] = track_pillars_ph1_path
     else:
         path_dict["track_pillars_ph1_path"] = None
+    if input_dict["segment_dic"] is True:
+        segment_dic_path = create_folder(folder_path, "segment_dic")
+        path_dict["segment_dic_path"] = segment_dic_path
+    else:
+        path_dict["segment_dic_path"] = None
+    if input_dict["seg_dic_visualize"] is True:
+        segment_dic_vis_path = create_folder(segment_dic_path, "visualizations")
+        path_dict["segment_dic_vis_path"] = segment_dic_vis_path
     return path_dict
 
 
@@ -838,9 +867,17 @@ def run_segment(
     # read the inputs
     img_list = read_all_tiff(input_path)
     # apply threshold
-    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    if threshold_function_idx == 6:
+        thresholded_2_lists = seg.threshold_all(img_list, threshold_function_idx)
+        thresholded_list_wound,thresholded_list_tissue = thresholded_2_lists
+    else:
+        thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     # masking
-    if zoom_fcn_idx == 2:
+    if threshold_function_idx == 6:
+        selection_idx = 4
+        pillar_mask_list = seg.get_pillar_mask_list(img_list[0],selection_idx)
+        tissue_mask_list,wound_mask_list,wound_region_list = seg.mask_all_dic(thresholded_list_wound,thresholded_list_tissue,pillar_mask_list)
+    elif zoom_fcn_idx == 2:
         # get pillar masks
         # future idea: do this based on multiple images e.g., avg all images?
         selection_idx = 4
@@ -1222,15 +1259,17 @@ def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_
     )
 
     is_potential_bg_shift,large_shift_frame_ind = pp.check_potential_large_background_shift(avg_pos_all_x,avg_pos_all_y)
+    folder_path_for_warning = output_path.parent.parent.parent
+    sample_name = output_path.parent.name
+    basename_exp = output_path.parent.parent.name
+    warning_folder_name = "warnings_for_" + basename_exp
     if is_potential_bg_shift is True:
-        folder_path_for_warning = output_path.parent.parent.parent
-        sample_name = output_path.parent.name
-        basename_exp = output_path.parent.parent.name
-        warning_folder_path = create_folder(folder_path_for_warning, "warnings_for_"+basename_exp)
-        _ = save_bg_shift_warning(warning_folder_path,sample_name,large_shift_frame_ind)
+        warning_folder_path = create_folder(folder_path_for_warning, warning_folder_name)
+        _ = warn.save_bg_shift_warning(warning_folder_path,sample_name,large_shift_frame_ind)
 
     relative_distances,rel_dist_pair_names = pp.compute_relative_pillars_dist(avg_pos_all_x,avg_pos_all_y)
-    GPR_relative_distances = pp.smooth_relative_pillar_distances_with_GPR(relative_distances)
+    with warn.WarningLogger(log_dir=folder_path_for_warning,folder_name=warning_folder_name,file_name=sample_name+"_GPR_warnings") as warning_logger:
+        GPR_relative_distances = pp.smooth_relative_pillar_distances_with_GPR(relative_distances)
     show_and_save_relative_pillar_distances(relative_distances,GPR_relative_distances,rel_dist_pair_names,output_path,is_potential_bg_shift)
     show_and_save_pillar_positions(first_img, avg_pos_all_x, avg_pos_all_y, output_path)
 
@@ -1248,51 +1287,6 @@ def run_texture_tracking_pillars(input_path: Path, output_path: Path, threshold_
     np.savetxt(str(path_relative_distances_pair_names), rel_dist_pair_names,fmt="%s")
 
     return pillar_mask_list, avg_pos_all_x, avg_pos_all_y, path_pos_x, path_pos_y
-
-
-def save_bg_shift_warning(warning_folder_path: Path, sample_name: str, large_shift_frame_ind: np.ndarray):
-    """
-    Save a warning text file about potential large background shifts between frames.
-    
-    Parameters:
-        warning_folder_path (Path): Path to the folder where the warning file will be saved
-        sample_name (str): Sample name used for the output filename
-        large_shift_frame_ind (np.ndarray): Array of frame indices where potential large shifts occur
-                                           (1-based indexing, shifts occur between frame_ind and frame_ind+1)
-    """
-    # Create the output filename
-    output_filename = f"{sample_name}_bg_shift_warning.txt"
-    output_path = warning_folder_path / output_filename
-    
-    # Prepare the warning message
-    warning_lines = [
-        f"Warning: Potential large background shifts detected for sample {sample_name}",
-        "------------------------------------------------------------",
-        "",
-        "The following frame transitions may have large background shifts:",
-        "(Note: Frame numbers start from 1)",
-        ""
-    ]
-    
-    # Add each shift location to the message
-    for frame_ind in large_shift_frame_ind:
-        warning_lines.append(f"- Between frame {frame_ind} and frame {frame_ind + 1}")
-    
-    # Add some additional notes
-    warning_lines.extend([
-        "",
-        "Note: These are potential shifts that may need visual inspection."
-    ])
-    
-    # Combine all lines with newline characters
-    warning_text = "\n".join(warning_lines)
-    
-    # Write to file
-    with open(output_path, 'w') as f:
-        f.write(warning_text)
-    
-    print(f"Warning file saved to: {output_path}")
-    return output_path
 
 
 def show_and_save_tracking(
@@ -1505,7 +1499,7 @@ def run_all(folder_path: Path) -> List:
     if input_dict["segment_brightfield"] is True:
         input_path = input_path_dict["brightfield_images_path"]
         output_path = output_path_dict["segment_brightfield_path"]
-        thresh_fcn = seg.select_threshold_function(input_dict, True, False, False)
+        thresh_fcn = seg.select_threshold_function(input_dict, True, False, False, False)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
         _, _, _, _, _, _, _, _, _, img_list_bf, contour_list_bf, tissue_param_list_bf, is_broken_list_bf, is_closed_list_bf = run_segment(input_path, output_path, thresh_fcn, zoom_fcn)
         time_all.append(time.time())
@@ -1513,7 +1507,7 @@ def run_all(folder_path: Path) -> List:
     if input_dict["segment_fluorescent"] is True:
         input_path = input_path_dict["fluorescent_images_path"]
         output_path = output_path_dict["segment_fluorescent_path"]
-        thresh_fcn = seg.select_threshold_function(input_dict, False, True, False)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, True, False, False)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
         _, _, _, _, _, _, _, _, _, img_list_fl, contour_list_fl, tissue_param_list_fl, is_broken_list_fl, is_closed_list_fl = run_segment(input_path, output_path, thresh_fcn, zoom_fcn)
         time_all.append(time.time())
@@ -1522,7 +1516,19 @@ def run_all(folder_path: Path) -> List:
         output_path = output_path_dict["track_pillars_ph1_path"]
         input_path = input_path_dict["ph1_images_path"]
         img_list_ph1 = read_all_tiff(input_path)
-        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
+        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
+        time_all.append(time.time())
+        action_all.append("run pillar texture tracking")
+    else:
+        avg_pos_all_x = None
+        avg_pos_all_y = None
+        pillar_masks_list = None
+    if input_dict["track_pillars_dic"] is True:
+        output_path = output_path_dict["track_pillars_dic_path"]
+        input_path = input_path_dict["dic_images_path"]
+        img_list_ph1 = read_all_tiff(input_path)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
         pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run pillar texture tracking")
@@ -1533,11 +1539,19 @@ def run_all(folder_path: Path) -> List:
     if input_dict["segment_ph1"] is True:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["segment_ph1_path"]
-        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
         _, _, _, _, _, _, _, _, _, img_list_ph1, contour_list_ph1, tissue_param_list_ph1, is_broken_list_ph1, is_closed_list_ph1 = run_segment(input_path, output_path, thresh_fcn, zoom_fcn, avg_pos_all_x,avg_pos_all_y,is_in_bi_folder)
         time_all.append(time.time())
         action_all.append("segmented ph1")
+    if input_dict["segment_dic"] is True:
+        input_path = input_path_dict["dic_images_path"]
+        output_path = output_path_dict["segment_dic_path"]
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, False, True)
+        # throw errors here if input_path == None? (future) and/or output dir isn't created
+        _, _, _, _, _, _, _, _, _, img_list_dic, contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic = run_segment(input_path, output_path, thresh_fcn, zoom_fcn, avg_pos_all_x,avg_pos_all_y,is_in_bi_folder)
+        time_all.append(time.time())
+        action_all.append("segmented dic")
     if input_dict["seg_bf_visualize"] is True:
         output_path = output_path_dict["segment_brightfield_vis_path"]
         fname = "brightfield_contour"
@@ -1560,6 +1574,13 @@ def run_all(folder_path: Path) -> List:
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
         action_all.append("visualized ph1")
+    if input_dict["seg_dic_visualize"] is True:
+        output_path = output_path_dict["segment_dic_vis_path"]
+        fname = "dic_contour"
+        _ = run_seg_visualize(output_path, img_list_dic, contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic, fname, avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder)
+        # throw errors here if necessary segmentation data doesn't exist
+        time_all.append(time.time())
+        action_all.append("visualized dic")
     if input_dict["bf_seg_with_fl_seg_visualize"] is True:
         output_path = output_path_dict["bf_seg_with_fl_seg_visualize_path"]
         _ = run_bf_seg_vs_fl_seg_visualize(output_path, img_list_bf, contour_list_bf, contour_list_fl)
@@ -1569,7 +1590,7 @@ def run_all(folder_path: Path) -> List:
     if input_dict["track_ph1"] is True:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["track_ph1_path"]
-        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True)
+        thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
         tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _, _, _, _, _, _, _ = run_texture_tracking(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run texture tracking")

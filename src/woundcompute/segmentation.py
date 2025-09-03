@@ -265,24 +265,12 @@ def dilate_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
     return dilated_array
 
 
-# def gabor_filter(array: np.ndarray, theta_range: int = 17, ff_max: int = 3, ff_mult: float = 0.4) -> np.ndarray:
-#     gabor_all = np.zeros(array.shape)
-#     for ff in range(0, ff_max):
-#         frequency = 0.2 + ff * ff_mult
-#         for tt in range(0, theta_range):
-#             theta = tt * np.pi / (theta_range - 1)
-#             # filt_real, _ = gabor(array, frequency=frequency, theta=theta)
-#             g_kernel = gabor_kernel(frequency=frequency,theta=theta)
-#             filt_real = ndimage.convolve(array,np.real(g_kernel),mode='reflect',cval=0)
-#             gabor_all += filt_real
-#     return gabor_all
-
-
 def gabor_filter(
     image_array: np.ndarray, 
     theta_range: int = 17, 
     ff_num: int = 3, 
-    ff_mult: float = 0.4
+    ff_mult: float = 0.4,
+    ff_base: float = 0.2
 ) -> np.ndarray:
 
     """
@@ -311,7 +299,7 @@ def gabor_filter(
     
     # Apply filters at multiple frequencies
     for ff in range(0, ff_num):
-        frequency = 0.2 + ff * ff_mult  # Altering the frequency
+        frequency = ff_base + ff * ff_mult  # Altering the frequency
 
         # Apply filters at multiple orientations
         for tt in range(0, theta_range):
@@ -360,13 +348,13 @@ def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
         return thresh_img_inverted
     elif selection_idx == 3:
         """Given a phase contrast ph1 image array. Will return a binary array where tissue = 0, background = 1."""
-        gabor_all = gabor_filter(array)
+        gabor_all = gabor_filter(array,ff_num=3,ff_mult=0.4,ff_base=0.2)
         thresh_img = apply_otsu_thresh(gabor_all)
         thresh_img_inverted = invert_mask(thresh_img)
         return thresh_img_inverted
     elif selection_idx == 4:
         """Given a phase contrast ph1 image array. Will return a binary array where tissue = 0, background = 1."""
-        gabor_all = gabor_filter(array)
+        gabor_all = gabor_filter(array,ff_num=3,ff_mult=0.4,ff_base=0.2)
         median_filter_size = 5
         median_applied = apply_median_filter(gabor_all, median_filter_size)
         gaussian_filter_size = 2
@@ -379,6 +367,24 @@ def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
         foreground = apply_thresh_multiotsu(array)
         thresh_img_inverted = invert_mask(foreground)
         return thresh_img_inverted
+    elif selection_idx == 6:
+        img_CLAHE = exposure.equalize_adapthist(array)
+        gabor_all = gabor_filter(img_CLAHE,ff_num=3,ff_mult=0.1,ff_base=0.10)
+        gaussian_filter_size = 2
+        gaussian_applied = apply_gaussian_filter(gabor_all, gaussian_filter_size)
+        thresh_img = apply_otsu_thresh(gaussian_applied)
+        thresh_img_inverted = invert_mask(thresh_img)
+        disk_rad = 11
+        thresholded_for_wound_seg = close_region(thresh_img_inverted, disk_rad)
+
+        gabor_all_for_tissue_seg = gabor_filter(array,ff_num=3,ff_mult=0.1,ff_base=0.10)
+        gaussian_filter_size = 2
+        gaussian_applied = apply_gaussian_filter(gabor_all_for_tissue_seg, gaussian_filter_size)
+        thresh_img = apply_otsu_thresh(gaussian_applied)
+        disk_rad = 5
+        thresholded_for_tissue_seg = close_region(thresh_img,disk_rad)
+
+        return thresholded_for_wound_seg, thresholded_for_tissue_seg
     else:
         raise ValueError("specified version is not supported")
 
@@ -386,10 +392,23 @@ def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
 def threshold_all(img_list: List, threshold_function_idx: int) -> List:
     """Given an image list and function index. Will apply threshold to all images."""
     thresholded_list = []
+    if threshold_function_idx==6:
+        thresholded_wound_img_all = []
+        thresholded_tissue_img_all = []
+
     for img in img_list:
-        thresh_img = threshold_array(img, threshold_function_idx)
-        thresholded_list.append(thresh_img)
-    return thresholded_list
+        if threshold_function_idx==6:
+            thresh_img_wound,thresh_img_tissue = threshold_array(img, threshold_function_idx)
+            thresholded_wound_img_all.append(thresh_img_wound)
+            thresholded_tissue_img_all.append(thresh_img_tissue)
+        else:
+            thresh_img = threshold_array(img, threshold_function_idx)
+            thresholded_list.append(thresh_img)
+
+    if threshold_function_idx==6:
+        return [thresholded_wound_img_all,thresholded_tissue_img_all]
+    else:
+        return thresholded_list
 
 
 def preview_thresholding(img: np.ndarray) -> list:
@@ -413,7 +432,7 @@ def get_mean_center(array: np.ndarray) -> Union[float, int]:
 def isolate_masks(array: np.ndarray, selection_idx: int) -> np.ndarray:
     """Given a binary mask where background = 1. Will return a mask where `tissue' = 1.
     Will return a mask where `wound' = 1."""
-    if selection_idx == 1 or selection_idx == 2 or selection_idx == 3 or selection_idx == 4 or selection_idx == 5:
+    if selection_idx in [1,2,3,4,5,6]:
         # select the three largest "background" regions -- side, side, wound
         region_props = get_region_props(array)
         # new approach -> remove all regions that aren't touching the boundaries
@@ -524,7 +543,8 @@ def select_threshold_function(
     input_dict: dict,
     is_brightfield: bool,
     is_fluorescent: bool,
-    is_ph1: bool
+    is_ph1: bool,
+    is_dic:bool,
 ) -> int:
     """Given setup information. Will return which segmentation function to run."""
     if is_brightfield and input_dict["seg_bf_version"] == 1:
@@ -537,8 +557,32 @@ def select_threshold_function(
         return 4
     elif is_fluorescent and input_dict["seg_fl_version"] == 2:
         return 5
+    elif is_dic and input_dict["seg_dic_version"] == 1:
+        return 6
     else:
         raise ValueError("specified version is not supported")
+
+
+def check_repeat_mask(mask1,mask2,iou_thresh=0.1):
+    iou = com.binary_mask_IOU(mask1.astype(np.uint8),mask2.astype(np.uint8))
+    if iou > iou_thresh:
+        return True,iou
+    else:
+        return False,iou
+
+
+def remove_repeat_masks(pillar_mask_list,iou_thresh=0.1):
+    num_pm = len(pillar_mask_list)
+    to_remove = set()
+    for i in range(num_pm):
+        for j in range(i+1,num_pm):
+            mask1 = pillar_mask_list[i].astype(np.uint8)
+            mask2 = pillar_mask_list[j].astype(np.uint8)
+            is_repeat,iou = check_repeat_mask(mask1,mask2,iou_thresh)
+            if is_repeat:
+                to_remove.add(j)
+    new_pillar_mask_list = [pillar_mask_list[i] for i in range(num_pm) if i not in to_remove]
+    return new_pillar_mask_list
 
 
 # def get_pillar_mask_list(array: np.ndarray, selection_idx: int):
@@ -571,7 +615,10 @@ def select_threshold_function(
 
 def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int = 1):
     # get tissue
-    thresh_img_tissue = threshold_array(img, selection_idx)
+    if selection_idx == 6:
+        thresh_img_tissue = threshold_array(img, 4)
+    else:
+        thresh_img_tissue = threshold_array(img, selection_idx)
     tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, selection_idx)
     tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
     # pillars tend to be dark circles with bright inside
@@ -603,7 +650,10 @@ def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int
         mask = apply_gaussian_filter(mask, filter_size)
         mask = mask > 0
         pillar_mask_list.append(mask)
-    return pillar_mask_list
+    
+    final_pillar_mask_list = remove_repeat_masks(pillar_mask_list,iou_thresh=0.1)
+
+    return final_pillar_mask_list
 
 
 # def mask_quadrants_img(frame: np.ndarray, quadrant: int) -> np.ndarray:
@@ -870,10 +920,6 @@ def leverage_pillars_for_wound_seg(
                 if len(closest_wound_regions) == 1:
                     wound_region = closest_wound_regions[0]
                 elif prev_frame_area:
-                    # wound_region_coords = region_to_coords(closest_wound_regions)
-                    # combined_mask = coords_to_mask(wound_region_coords,background_mask)
-                    # region_props_combined = regionprops(combined_mask.astype(np.uint8))
-                    # regions_in_question = closest_wound_regions + region_props_combined
                     wound_region = get_most_similar_area_region(closest_wound_regions,prev_frame_area,1)[0]
                 else:
                     wound_region = get_largest_regions(closest_wound_regions, 1)[0]
@@ -913,6 +959,71 @@ def mask_all_with_pillars(thresh_img_list: List, pillar_mask_list: List) -> List
         tissue_mask, wound_mask, wound_region = leverage_pillars_for_wound_seg(
             pillar_mask, background_mask,wound_region
             )
+        tissue_mask_list.append(tissue_mask)
+        wound_mask_list.append(wound_mask)
+        wound_region_list.append(wound_region)
+    return tissue_mask_list, wound_mask_list, wound_region_list
+
+
+def segment_wound_and_tissue_dic(
+    thresholded_img_wound:np.ndarray,
+    thresholded_img_tissue:np.ndarray,
+    pillar_masks:np.ndarray,
+    wound_region_old=None
+    )->List:
+
+    box = pillar_mask_to_rotated_box(pillar_masks)
+    scale_factor = 0.4
+    box_shrink = shrink_box(box, scale_factor)
+
+    # segment the wound
+    thresh_wound_inverted = invert_mask(thresholded_img_wound)
+    region_props = get_region_props(thresh_wound_inverted)
+    num_regions = 10
+    regions_largest = get_largest_regions(region_props, num_regions)
+    if len(regions_largest) > 0:
+        allowable_regions = regions_in_box_all(box_shrink, regions_largest)
+        num_allowable_reg = len(allowable_regions)
+        if num_allowable_reg > 0:
+            wound_region = get_largest_regions(allowable_regions, 1)[0]
+            wound_coords = region_to_coords([wound_region])
+            wound_mask = coords_to_mask(wound_coords,pillar_masks)
+        else:
+            wound_mask = np.zeros(thresholded_img_wound.shape)
+            wound_region = None
+    else:
+        wound_mask = np.zeros(thresholded_img_wound.shape)
+        wound_region = None
+
+    # segment the tissue
+    region_props_tissue = get_region_props(thresholded_img_tissue)
+    num_regions = 1
+    regions_largest_tissue = get_largest_regions(region_props_tissue, num_regions)
+    regions_largest_coords = region_to_coords(regions_largest_tissue)
+    tissue_mask_open = coords_to_mask(regions_largest_coords, pillar_masks)
+    combined_mask = tissue_mask_open+wound_mask
+    combined_mask = combined_mask > 0
+    pad_w = 64
+    combined_mask = np.pad(combined_mask, pad_width=pad_w, mode='constant', constant_values=0)
+    tissue_mask_no_wound = close_region(combined_mask,radius=11)
+    tissue_mask = tissue_mask_no_wound[pad_w:-pad_w,pad_w:-pad_w]
+    tissue_mask[wound_mask>0] = 0
+    tissue_mask[pillar_masks>0] = 0
+
+    return tissue_mask, wound_mask, wound_region
+
+
+def mask_all_dic(thresh_img_list_wound:List,thresh_img_list_tissue:List,pillar_mask_list:List)->List:
+    pillar_mask = mask_list_to_single_mask(pillar_mask_list)
+    tissue_mask_list = []
+    wound_mask_list = []
+    wound_region_list = []
+    num_images = len(thresh_img_list_tissue)
+    wound_region = None
+    for kk in range(0,num_images):
+        thresholded_img_wound = thresh_img_list_wound[kk]
+        thresholded_img_tissue = thresh_img_list_tissue[kk]
+        tissue_mask, wound_mask, wound_region = segment_wound_and_tissue_dic(thresholded_img_wound,thresholded_img_tissue,pillar_mask, wound_region)
         tissue_mask_list.append(tissue_mask)
         wound_mask_list.append(wound_mask)
         wound_region_list.append(wound_region)

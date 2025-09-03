@@ -47,8 +47,21 @@ def glob_fluorescent(example_name):
 
 def glob_ph1(example_name):
     folder_path = example_path(example_name)
-    fl_path = folder_path.joinpath("ph1_images").resolve()
-    name_list = glob.glob(str(fl_path) + '/*.TIF')
+    ph1_path = folder_path.joinpath("ph1_images").resolve()
+    name_list = glob.glob(str(ph1_path) + '/*.TIF')
+    name_list.sort()
+    name_list_path = []
+    for name in name_list:
+        name_list_path.append(Path(name))
+    return name_list
+
+
+def glob_dic(example_name):
+    folder_path = example_path(example_name)
+    dic_path = folder_path.joinpath("dic_images").resolve()
+    name_list = glob.glob(str(dic_path) + '/*.TIF')
+    if name_list == []:
+        name_list = glob.glob(str(dic_path) + '/*.tif')
     name_list.sort()
     name_list_path = []
     for name in name_list:
@@ -456,6 +469,18 @@ def test_threshold_all():
     assert np.min(thresh_img) == 0
     assert thresh_img.shape[0] == example_file.shape[0]
     assert thresh_img.shape[1] == example_file.shape[1]
+    # dic use case
+    file_path = glob_dic("test_single")[0]
+    example_file = io.imread(file_path)
+    thresh_img_for_wound,thresh_img_for_tissue = seg.threshold_array(example_file, 6)
+    assert np.max(thresh_img_for_wound) == 1
+    assert np.min(thresh_img_for_wound) == 0
+    assert thresh_img_for_wound.shape[0] == example_file.shape[0]
+    assert thresh_img_for_wound.shape[1] == example_file.shape[1]
+    assert np.max(thresh_img_for_tissue) == 1
+    assert np.min(thresh_img_for_tissue) == 0
+    assert thresh_img_for_tissue.shape[0] == example_file.shape[0]
+    assert thresh_img_for_tissue.shape[1] == example_file.shape[1]
     # error due to unaccounted for case
     with pytest.raises(ValueError) as error:
         seg.threshold_array(example_file, 15)
@@ -602,6 +627,23 @@ def test_isolate_masks_ph1_anish():
     assert np.sum(wound_mask + tissue_mask <= 1) == wound_mask.shape[0] * wound_mask.shape[1]
 
 
+def test_isolate_masks_dic():
+    file_path = glob_dic("test_single")[0]
+    example_file = io.imread(file_path)
+    _,thresh_img_for_tissue = seg.threshold_array(example_file, 6)
+    # only test thresh_img_for_tissue because that is the only case used in isolate_masks
+    tissue_mask, wound_mask, _ = seg.isolate_masks(thresh_img_for_tissue, 4)
+    assert np.max(tissue_mask) == 1
+    assert np.min(tissue_mask) == 0
+    assert tissue_mask.shape[0] == tissue_mask.shape[0]
+    assert tissue_mask.shape[1] == tissue_mask.shape[1]
+    assert np.max(wound_mask) == 1
+    assert np.min(wound_mask) == 0
+    assert wound_mask.shape[0] == wound_mask.shape[0]
+    assert wound_mask.shape[1] == wound_mask.shape[1]
+    assert np.sum(wound_mask + tissue_mask <= 1) == wound_mask.shape[0] * wound_mask.shape[1]
+
+
 def test_isolate_masks_other_case():
     # error due to unaccounted for case
     with pytest.raises(ValueError) as error:
@@ -666,57 +708,119 @@ def test_make_tissue_mask_robust_brightfield():
     assert tissue_contour.shape[0] > 100
 
 
+def test_make_tissue_mask_robust_dic():
+    folder_path = example_path("test_dic_mini_movie")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["dic_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    threshold_function_idx = 6
+    _,thresholded_for_tissue = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_for_tissue, threshold_function_idx)
+    tissue_mask = tissue_mask_list[0]
+    wound_mask = wound_mask_list[0]
+    tissue_mask_robust = seg.make_tissue_mask_robust(tissue_mask, wound_mask)
+    tissue_contour = seg.mask_to_contour(tissue_mask_robust)
+    assert tissue_contour.shape[0] > 100
+
+
 def test_select_threshold_function():
     folder_path = example_path("test_single")
     input_dict = ia.input_info_to_input_dict(folder_path)
     is_brightfield = True
     is_fluorescent = False
     is_ph1 = False
-    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 1
+    is_dic = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 1
     is_brightfield = False
     is_fluorescent = True
     is_ph1 = False
-    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 2
+    is_dic = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 2
     is_brightfield = False
     is_fluorescent = False
     is_ph1 = True
-    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 3
+    is_dic = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 3
+    is_brightfield = False
+    is_fluorescent = False
+    is_ph1 = False
+    is_dic = True
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 6
 
     input_dict["seg_ph1_version"] = 2
     is_brightfield = False
     is_fluorescent = False
     is_ph1 = True
-    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 4
+    is_dic = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 4
 
     input_dict["seg_bf_version"] = 2
     is_brightfield = True
     is_fluorescent = False
     is_ph1 = False
+    is_dic = False
     with pytest.raises(ValueError) as error:
-        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1)
+        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic)
     assert error.typename == "ValueError"
 
     input_dict["seg_fl_version"] = 2
     is_brightfield = False
     is_fluorescent = True
     is_ph1 = False
-    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1) == 5
+    is_dic = False
+    assert seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic) == 5
 
     input_dict["seg_fl_version"] = 3
     is_brightfield = False
     is_fluorescent = True
     is_ph1 = False
+    is_dic = False
     with pytest.raises(ValueError) as error:
-        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1)
+        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic)
     assert error.typename == "ValueError"
 
     input_dict["seg_ph1_version"] = 3
     is_brightfield = False
     is_fluorescent = False
     is_ph1 = True
+    is_dic = False
     with pytest.raises(ValueError) as error:
-        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1)
+        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic)
     assert error.typename == "ValueError"
+
+    input_dict["seg_dic_version"] = 2
+    is_brightfield = False
+    is_fluorescent = False
+    is_ph1 = False
+    is_dic = True
+    with pytest.raises(ValueError) as error:
+        seg.select_threshold_function(input_dict, is_brightfield, is_fluorescent, is_ph1, is_dic)
+    assert error.typename == "ValueError"
+
+
+def test_check_repeat_mask():
+    array = np.zeros((20, 20))
+    array[8:12, 8:12] = 1
+    array2 = array.copy()
+    result,_ = seg.check_repeat_mask(array, array2)
+    assert result is True
+    array3 = np.zeros((20, 20))
+    array3[0:4, 0:4] = 1
+    result,_ = seg.check_repeat_mask(array, array3)
+    assert result is False
+
+
+def test_remove_repeat_masks():
+    array = np.zeros((20, 20))
+    array[8:12, 8:12] = 1
+    array2 = array.copy()
+    array3 = np.zeros((20, 20))
+    array3[0:4, 0:4] = 1
+    new_masks_list = seg.remove_repeat_masks([array,array2,array3])
+    assert len(new_masks_list) == 2
+    assert np.allclose(new_masks_list[0], array)
+    assert np.allclose(new_masks_list[1], array3)
 
 
 def test_single_masks_ph1_special_cases():
@@ -1077,6 +1181,38 @@ def test_mask_all_with_pillars():
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
+    assert len(tissue_mask_list) == len(img_list)
+    assert len(wound_mask_list) == len(img_list)
+    assert len(wound_region_list) == len(img_list)
+    assert tissue_mask_list[0].shape == img_list[0].shape
+    assert wound_mask_list[0].shape == img_list[0].shape
+
+
+def test_segment_wound_and_tissue_dic():
+    folder_path = example_path("test_dic_mini_movie")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["dic_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img = img_list[0]
+    threshold_function_idx = 6
+    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
+    thresholded_for_wound,thresholded_for_tissue = seg.threshold_array(img, threshold_function_idx)
+    tissue_mask, wound_mask, wound_region = seg.segment_wound_and_tissue_dic(thresholded_for_wound,thresholded_for_tissue,pillar_mask,None)
+    assert tissue_mask.shape == img.shape
+    assert wound_mask.shape == img.shape
+    assert wound_region is not None
+
+
+def test_mask_all_dic():
+    folder_path = example_path("test_dic_mini_movie")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["dic_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    threshold_function_idx = 6
+    thresholded_for_wound_seg,thresholded_for_tissue_seg = seg.threshold_all(img_list, threshold_function_idx)
+    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_dic(thresholded_for_wound_seg,thresholded_for_tissue_seg,pillar_mask_list)
     assert len(tissue_mask_list) == len(img_list)
     assert len(wound_mask_list) == len(img_list)
     assert len(wound_region_list) == len(img_list)
