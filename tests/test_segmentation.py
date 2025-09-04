@@ -1170,6 +1170,12 @@ def test_leverage_pillars_for_wound_seg():
     assert tissue_mask.shape == img.shape
     assert wound_mask.shape == img.shape
     assert wound_region is not None
+    img1 = img_list[1]
+    background_mask1 = seg.threshold_array(img1,threshold_function_idx)
+    tissue_mask1, wound_mask1, wound_region1 = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask1,wound_region)
+    assert tissue_mask1.shape == img.shape
+    assert wound_mask1.shape == img.shape
+    assert wound_region1 is not None
 
 
 def test_mask_all_with_pillars():
@@ -1202,6 +1208,27 @@ def test_segment_wound_and_tissue_dic():
     assert tissue_mask.shape == img.shape
     assert wound_mask.shape == img.shape
     assert wound_region is not None
+
+
+def test_segment_wound_and_tissue_dic_no_wound():
+    # test no wound
+    thresholded_img_wound = np.ones((50,50),dtype=np.uint8)
+    thresholded_img_tissue = np.zeros((50,50),dtype=np.uint8)
+    pillar_masks = np.zeros((50,50),dtype=np.uint8)
+    pillar_masks[12:13,12:13] = pillar_masks[12:13,37:38] = pillar_masks[37:38,12:13] = pillar_masks[37:38,37:38] = 1
+    tissue_mask, wound_mask, wound_region = seg.segment_wound_and_tissue_dic(
+        thresholded_img_wound,thresholded_img_tissue,pillar_masks,None
+        )
+    assert wound_region is None
+    # test detected wound not in pillars
+    thresholded_img_wound = np.ones((50,50),dtype=np.uint8)
+    thresholded_img_wound[20:30,20:30] = 0
+    pillar_masks = np.zeros((50,50),dtype=np.uint8)
+    pillar_masks[22,22] = pillar_masks[22,28] = pillar_masks[28,22] = pillar_masks[28,28] = 1
+    tissue_mask, wound_mask, wound_region = seg.segment_wound_and_tissue_dic(
+        thresholded_img_wound,thresholded_img_tissue,pillar_masks,None
+        )
+    assert wound_region is None
 
 
 def test_mask_all_dic():

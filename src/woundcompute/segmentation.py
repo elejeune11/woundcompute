@@ -971,7 +971,6 @@ def segment_wound_and_tissue_dic(
     pillar_masks:np.ndarray,
     wound_region_old=None
     )->List:
-
     box = pillar_mask_to_rotated_box(pillar_masks)
     scale_factor = 0.4
     box_shrink = shrink_box(box, scale_factor)

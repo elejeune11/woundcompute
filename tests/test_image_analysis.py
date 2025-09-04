@@ -1064,6 +1064,14 @@ def test_run_all_zoom_Anish():
     assert len(time_all) == 4
     assert len(action_all) == 4
 
+
+def test_run_all_dic():
+    folder_path = example_path("test_dic_mini_movie")
+    time_all, action_all = ia.run_all(folder_path)
+    assert len(time_all) == 5
+    assert len(action_all) == 5
+
+
 # def test_line_param():
 #     array = np.zeros((50, 50))
 #     array[5:40, 10:15] = 1
