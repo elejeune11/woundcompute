@@ -697,7 +697,7 @@ def test_is_broken_anish():
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["ph1_images_path"]
     img_list = ia.read_all_tiff(folder_path)
-    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
     pillar_mask_list = seg.get_pillar_mask_list(img_list[0],4)
@@ -711,7 +711,7 @@ def test_is_broken_alt():
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["brightfield_images_path"]
     img_list = ia.read_all_tiff(folder_path)
-    threshold_function_idx = seg.select_threshold_function(input_dict, True, False, False)
+    threshold_function_idx = seg.select_threshold_function(input_dict, True, False, False, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
     tissue_mask_list = [tissue_mask_list[3]]
@@ -725,7 +725,7 @@ def test_is_broken_unbroken_example():
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["ph1_images_path"]
     img_list = ia.read_all_tiff(folder_path)
-    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
