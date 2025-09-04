@@ -517,11 +517,15 @@ def test_check_broken_tissue():
 def test_split_into_four_corners_with_pillars():
     tissue_mask = np.zeros((8,8))
     tissue_mask[2:6,2:6] = 1
-    pillar_mask_list = seg.get_pillar_mask_list(tissue_mask,4)
-    pillar_mask_list[0][1,1] = False
-    pillar_mask_list[1][-2,-2] = False
-    pillar_mask_list[2][1,-2] = False
-    pillar_mask_list[3][-2,1] = False
+    p0_mask = np.ones((8,8),dtype=bool)
+    p0_mask[1,1] = 0
+    p1_mask = np.ones((8,8),dtype=bool)
+    p1_mask[-2,-2] = 0
+    p2_mask = np.ones((8,8),dtype=bool)
+    p2_mask[1,-2] = 0
+    p3_mask = np.ones((8,8),dtype=bool)
+    p3_mask[-2,1] = 0
+    pillar_mask_list = [p0_mask,p1_mask,p2_mask,p3_mask]
     for pil_ind,pillar_mask in enumerate(pillar_mask_list):
         pillar_mask_list[pil_ind] = seg.invert_mask(pillar_mask).astype(np.uint8)
     tissue_quarter_masks = com.split_into_four_corners_with_pillars(
@@ -534,11 +538,15 @@ def test_split_into_four_corners_with_pillars():
 def test_obtain_tissue_quarters_area():
     tissue_mask = np.zeros((8,8))
     tissue_mask[2:6,2:6] = 1
-    pillar_mask_list = seg.get_pillar_mask_list(tissue_mask,4)
-    pillar_mask_list[0][1,1] = False
-    pillar_mask_list[1][-2,-2] = False
-    pillar_mask_list[2][1,-2] = False
-    pillar_mask_list[3][-2,1] = False
+    p0_mask = np.ones((8,8),dtype=bool)
+    p0_mask[1,1] = 0
+    p1_mask = np.ones((8,8),dtype=bool)
+    p1_mask[-2,-2] = 0
+    p2_mask = np.ones((8,8),dtype=bool)
+    p2_mask[1,-2] = 0
+    p3_mask = np.ones((8,8),dtype=bool)
+    p3_mask[-2,1] = 0
+    pillar_mask_list = [p0_mask,p1_mask,p2_mask,p3_mask]
     for pil_ind,pillar_mask in enumerate(pillar_mask_list):
         pillar_mask_list[pil_ind] = seg.invert_mask(pillar_mask).astype(np.uint8)
     Qlist,tissue_quarter_masks=com.obtain_tissue_quarters_area(
@@ -570,7 +578,7 @@ def test_check_broken_tissue_zoom():
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["ph1_images_path"]
     img_list = ia.read_all_tiff(folder_path)
-    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, _ = seg.mask_all(thresholded_list, threshold_function_idx)
     for kk in range(0, int(len(img_list) / 2)):
@@ -623,7 +631,7 @@ def test_is_broken_example():
     input_dict, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["ph1_images_path"]
     img_list = ia.read_all_tiff(folder_path)
-    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True)
+    threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list, [], True, zoom_type=2)
