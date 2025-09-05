@@ -1578,6 +1578,7 @@ def run_all(folder_path: Path) -> List:
         output_path = output_path_dict["segment_dic_vis_path"]
         fname = "dic_contour"
         _ = run_seg_visualize(output_path, img_list_dic, contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic, fname, avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder)
+        combine_images(folder_path=output_path,output_path=output_path,image_type=fname)
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
         action_all.append("visualized dic")
