@@ -6,6 +6,8 @@
 
 [![tests](https://github.com/elejeune11/woundcompute/workflows/tests/badge.svg)](https://github.com/elejeune11/woundcompute/actions) [![codecov](https://codecov.io/gh/elejeune11/woundcompute/branch/main/graph/badge.svg?token=EVCCPWCUE7)](https://codecov.io/gh/elejeune11/woundcompute)
 
+[![DOI](https://zenodo.org/badge/530775682.svg)](https://doi.org/10.5281/zenodo.17127155)
+
 
 ## Table of Contents
 * [Project Summary](#summary)
