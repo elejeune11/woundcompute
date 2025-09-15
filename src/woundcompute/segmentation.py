@@ -287,6 +287,8 @@ def gabor_filter(
         Number of frequency scales to apply
     ff_mult : float, optional (default=0.4)
         Frequency multiplier to increment per ff_num
+    ff_base : float, optional (default=0.2)
+        Base frequency for the first Gabor filter
         
     Returns:
     --------
