@@ -586,8 +586,6 @@ def save_all_img_with_contour_and_width(
                                             pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours=pillar_contours_list)
         elif is_in_bi_folder:
             save_path = folder_path.joinpath(file_name + "_%05d.png" % (kk)).resolve()
-            print(f'pillars_pos_x.shape = {pillars_pos_x.shape}, pillars_pos_x[0] = {pillars_pos_x[0]}')
-            print(f'pillar_contours_list len = {len(pillar_contours_list)}')
             show_and_save_bi_tissue(img_array=img,is_broken=is_broken_list[kk],save_path=save_path,frame_num=kk,
                                     title=f"before injury frame {kk}",pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours=pillar_contours_list)
         file_name_list.append(save_path)
