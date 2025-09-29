@@ -571,7 +571,10 @@ def save_all_img_with_contour_and_width(
         if not is_in_bi_folder:
             cont = contour_list[kk]
             is_broken = is_broken_list[kk]
-            is_closed = is_closed_list[kk]
+            if is_closed_list == []:
+                is_closed = None
+            else:
+                is_closed = is_closed_list[kk]
             
             #  area, pt1_0, pt1_1, pt2_0, pt2_1, width, kappa_1, kappa_2
             tp = tissue_parameters_list[kk]
@@ -583,6 +586,8 @@ def save_all_img_with_contour_and_width(
                                             pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours=pillar_contours_list)
         elif is_in_bi_folder:
             save_path = folder_path.joinpath(file_name + "_%05d.png" % (kk)).resolve()
+            print(f'pillars_pos_x.shape = {pillars_pos_x.shape}, pillars_pos_x[0] = {pillars_pos_x[0]}')
+            print(f'pillar_contours_list len = {len(pillar_contours_list)}')
             show_and_save_bi_tissue(img_array=img,is_broken=is_broken_list[kk],save_path=save_path,frame_num=kk,
                                     title=f"before injury frame {kk}",pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours=pillar_contours_list)
         file_name_list.append(save_path)
@@ -1310,12 +1315,9 @@ def show_and_save_tracking(
     if is_broken:
         plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
     else:
-        if is_closed:
-            if contour is not None:
-                plt.plot(contour[:, 1], contour[:, 0], 'k', linewidth=2.0, antialiased=True)
-        else:
-            if contour is not None:
-                plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+        if is_closed is not None:
+            status_color = "k" if is_closed else "r"
+            plt.plot(contour[:, 1], contour[:, 0], status_color, linewidth=2.0, antialiased=True)
         # plot tracked points
         plt.plot(tracker_x_forward[:, 0:frame].T, tracker_y_forward[:, 0:frame].T, "y-")
         plt.plot(tracker_x_forward[:, frame], tracker_y_forward[:, frame], "y.")
@@ -1347,7 +1349,10 @@ def save_all_img_tracking(
         img = img_list[kk]
         contour = contour_list[kk]
         is_broken = is_broken_list[kk]
-        is_closed = is_closed_list[kk]
+        if is_closed_list == []:
+            is_closed = None
+        else:
+            is_closed = is_closed_list[kk]
         title = "frame %05d" % (kk)
         frame = kk
         save_path = output_path.joinpath(fname + "_%05d.png" % (kk)).resolve()
@@ -1495,6 +1500,9 @@ def run_all(folder_path: Path) -> List:
     action_all.append("loaded input")
     zoom_fcn = com.select_zoom_function(input_dict)
     is_in_bi_folder = check_before_injury_folder(folder_path)
+    avg_pos_all_x = None
+    avg_pos_all_y = None
+    pillar_masks_list = None
 
     if input_dict["segment_brightfield"] is True:
         input_path = input_path_dict["brightfield_images_path"]
@@ -1520,10 +1528,6 @@ def run_all(folder_path: Path) -> List:
         pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run pillar texture tracking")
-    else:
-        avg_pos_all_x = None
-        avg_pos_all_y = None
-        pillar_masks_list = None
     if input_dict["track_pillars_dic"] is True:
         output_path = output_path_dict["track_pillars_dic_path"]
         input_path = input_path_dict["dic_images_path"]
@@ -1532,10 +1536,6 @@ def run_all(folder_path: Path) -> List:
         pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(input_path, output_path, thresh_fcn)
         time_all.append(time.time())
         action_all.append("run pillar texture tracking")
-    else:
-        avg_pos_all_x = None
-        avg_pos_all_y = None
-        pillar_masks_list = None
     if input_dict["segment_ph1"] is True:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["segment_ph1_path"]
@@ -1601,7 +1601,10 @@ def run_all(folder_path: Path) -> List:
         img_list_ph1 = read_all_tiff(input_path)
         contour_list_ph1 = load_contour_coords(folder_path)
         is_broken_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_broken_vs_frame.txt"))
-        is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
+        if is_in_bi_folder:
+            is_closed_list_ph1 = []
+        else:
+            is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
         _ = run_texture_tracking_visualize(output_path, img_list_ph1, contour_list_ph1, is_broken_list_ph1, is_closed_list_ph1, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
         time_all.append(time.time())
         action_all.append("visualized texture tracking")
