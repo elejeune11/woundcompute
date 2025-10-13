@@ -375,7 +375,7 @@ def test_tissue_parameters():
     tissue_robust = seg.make_tissue_mask_robust(tissue_mask_list[0], wound_mask_list[0])
     regions_all = seg.get_region_props(tissue_robust)
     region = seg.get_largest_regions(regions_all, 1)[0]
-    _, axis_major_length, axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(region)
+    _, axis_major_length, axis_minor_length, centroid_row, centroid_col, _, _, orientation, perimeter = seg.extract_region_props(region)
     # contour_clipped = com.clip_contour(tissue_contour, centroid_row, centroid_col, orientation, axis_major_length, axis_minor_length)
     # import matplotlib.pyplot as plt
     # plt.imshow(img_list[0])
@@ -489,7 +489,7 @@ def test_tissue_parameters_anish():
     tissue_robust = seg.make_tissue_mask_robust(tissue_mask_list[0], wound_mask_list[0])
     regions_all = seg.get_region_props(tissue_robust)
     region = seg.get_largest_regions(regions_all, 1)[0]
-    _, axis_major_length, axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(region)
+    _, axis_major_length, axis_minor_length, centroid_row, centroid_col, _, _, orientation,perimeter = seg.extract_region_props(region)
     # contour_clipped = ia.clip_contour(tissue_contour, centroid_row, centroid_col, orientation, axis_major_length, axis_minor_length)
     # contour_clipped_2 = ia.clip_contour(contour_clipped, centroid_row, centroid_col, orientation - np.pi / 2.0, axis_major_length, axis_minor_length)
     import matplotlib.pyplot as plt
@@ -884,7 +884,7 @@ def test_get_contour_distance_across_all():
     contour = seg.mask_to_contour(array)
     regions_all = seg.get_region_props(array)
     region = seg.get_largest_regions(regions_all, 1)[0]
-    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, _ = seg.extract_region_props(region)
+    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, _, _ = seg.extract_region_props(region)
     include_idx = com.include_points_contour(contour, centroid_row, centroid_col, tissue_axis_major_length, tissue_axis_minor_length)
     distance_all, _ = com.get_contour_distance_across_all(contour, include_idx)
     assert np.min(distance_all) < val1 * 1.05
@@ -903,7 +903,7 @@ def test_include_points_contour():
     contour = seg.mask_to_contour(array)
     regions_all = seg.get_region_props(array)
     region = seg.get_largest_regions(regions_all, 1)[0]
-    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, _ = seg.extract_region_props(region)
+    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, _, _ = seg.extract_region_props(region)
     include_idx = com.include_points_contour(contour, centroid_row, centroid_col, tissue_axis_major_length, tissue_axis_minor_length)
     include_idx = np.asarray(include_idx)
     # import matplotlib.pyplot as plt
@@ -922,7 +922,7 @@ def test_get_contour_width():
     contour = seg.mask_to_contour(array)
     regions_all = seg.get_region_props(array)
     region = seg.get_largest_regions(regions_all, 1)[0]
-    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, orientation = seg.extract_region_props(region)
+    _, tissue_axis_major_length, tissue_axis_minor_length, centroid_row, centroid_col, _, _, orientation, perimeter = seg.extract_region_props(region)
     width, idx_a, idx_b = com.get_contour_width(contour, centroid_row, centroid_col, tissue_axis_major_length, tissue_axis_minor_length, orientation)
     assert width < val1
     assert width > val1 * 0.9

@@ -779,14 +779,14 @@ def test_run_all_ph1():
 def test_load_contour_coords():
     folder_path = example_path("test_ph1_mini_movie")
     _, _ = ia.run_all(folder_path)
-    contour_coords_list = ia.load_contour_coords(folder_path)
+    contour_coords_list = ia.load_contour_coords(folder_path,"ph1")
     assert len(contour_coords_list) > 0
     assert contour_coords_list[0].shape[0] > 0
 
 
 def test_load_contour_coords_none():
     folder_path = example_path("test_zoom")
-    contour_coords_list = ia.load_contour_coords(folder_path)
+    contour_coords_list = ia.load_contour_coords(folder_path,"ph1")
     for contour in contour_coords_list:
         assert contour is None
 
