@@ -245,8 +245,15 @@ def test_show_and_save_bi_tissue():
     file_path = glob_ph1("test_before_injury")[0]
     file = ia.read_tiff(file_path)
     is_broken=False
-    save_path = output_file("test_single", "test_ph1_tissue_mask_bi.png")
+    save_path = output_file("test_before_injury", "test_ph1_tissue_mask_bi.png")
     ia.show_and_save_bi_tissue(file,is_broken,save_path,0,"test_before_injury")
+
+
+def test_show_and_save_bs_tissue():
+    file_path = glob_ph1("test_before_seeding")[0]
+    file = ia.read_tiff(file_path)
+    save_path = output_file("test_before_seeding","test_ph1_bs.png")
+    ia.show_and_save_bs_tissue(file,save_path,"test_before_seeding")
 
 
 def test_show_and_save_double_contour():

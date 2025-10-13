@@ -293,7 +293,7 @@ def test_extract_region_props():
     disk_1 = morphology.disk(rad_1, dtype=bool)
     region_props = seg.get_region_props(disk_1)
     region = region_props[0]
-    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation = seg.extract_region_props(region)
+    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation, perimeter = seg.extract_region_props(region)
     assert area == np.sum(disk_1)
     assert axis_major_length > 10
     assert axis_major_length < 11
@@ -307,8 +307,9 @@ def test_extract_region_props():
     assert bbox[2] == disk_1.shape[0]
     assert bbox[3] == disk_1.shape[1]
     assert orientation > 0
+    assert perimeter > 31 and perimeter < 33
     region = None
-    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation = seg.extract_region_props(region)
+    area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation, perimeter = seg.extract_region_props(region)
     assert area is None
     assert axis_major_length is None
     assert axis_minor_length is None
@@ -320,6 +321,7 @@ def test_extract_region_props():
     assert bbox[2] is None
     assert bbox[3] is None
     assert orientation is None
+    assert perimeter is None
 
 
 def test_region_to_coords():
@@ -1245,3 +1247,32 @@ def test_mask_all_dic():
     assert len(wound_region_list) == len(img_list)
     assert tissue_mask_list[0].shape == img_list[0].shape
     assert wound_mask_list[0].shape == img_list[0].shape
+
+
+def test_get_roundest_regions_with_area_constraints():
+    rad_1 = 5
+    disk_1 = morphology.disk(rad_1, dtype=bool)
+    rad_2 = 1
+    disk_2 = morphology.disk(rad_2, dtype=bool)
+
+    dim = 30
+    array = np.zeros((dim, dim))
+    array[0:disk_1.shape[0], 0:disk_1.shape[1]] = disk_1
+    array[-disk_2.shape[0]:, -disk_2.shape[1]:] = disk_2
+    array[-4:-2, 5:20] = 1
+    array[15:17, 10:29] = 1
+    region_props = seg.get_region_props(array)
+    num_regions = 2
+    regions_list = seg.get_roundest_regions_with_area_constraints(
+        region_props, num_regions, min_percent_area=0.07,max_percent_area=0.5,img_shape=array.shape
+        )
+    assert len(regions_list) == 1
+    assert regions_list[0].area == np.sum(disk_1)
+
+    blank_arr=np.zeros((dim,dim))
+    blank_arr[1:3,1:3]=blank_arr[10:12,10:12]=1
+    region_props = seg.get_region_props(blank_arr)
+    regions_list = seg.get_roundest_regions_with_area_constraints(
+        region_props, num_regions, min_percent_area=0.1,max_percent_area=0.5,img_shape=blank_arr.shape
+        )
+    assert len(regions_list) == len(region_props)

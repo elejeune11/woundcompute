@@ -5,7 +5,7 @@ from skimage import exposure, img_as_ubyte
 from skimage import measure, morphology
 from skimage.filters import gabor_kernel, threshold_otsu, threshold_multiotsu, rank
 from skimage.measure import label, regionprops
-from typing import List, Union
+from typing import List, Union, Tuple
 from woundcompute import compute_values as com
 
 
@@ -187,7 +187,7 @@ def extract_region_props(region_props: object) -> Union[float, np.ndarray]:
     See: https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops
     """
     if region_props is None:
-        return None, None, None, None, None, None, (None, None, None, None), None
+        return None, None, None, None, None, None, (None, None, None, None), None, None
     else:
         area = region_props.area
         axis_major_length = region_props.axis_major_length
@@ -198,7 +198,8 @@ def extract_region_props(region_props: object) -> Union[float, np.ndarray]:
         coords = region_props.coords
         bbox = region_props.bbox
         orientation = region_props.orientation
-        return area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation
+        perimeter = region_props.perimeter
+        return area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation, perimeter
 
 
 def region_to_coords(regions_list: List) -> List:
@@ -260,8 +261,11 @@ def close_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
 
 def dilate_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
     """Given an array with a small hole. Will return a closed array."""
-    footprint = morphology.disk(radius, dtype=bool)
-    dilated_array = morphology.binary_dilation(array, footprint)
+    # footprint = morphology.disk(radius, dtype=bool)
+    # dilated_array = morphology.binary_dilation(array, footprint)
+    diameter = radius*2+1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diameter,diameter))
+    dilated_array = cv2.dilate(array.astype(np.uint8),kernel,iterations=1) > 0
     return dilated_array
 
 
@@ -489,18 +493,18 @@ def mask_all(thresh_img_list: List, selection_idx: int) -> List:
 
 def check_above_min_size(region: object, min_area: Union[int, float]):
     """Will check if region is above a minimum area."""
-    wound_area, _, _, _, _, _, _, _ = extract_region_props(region)
+    wound_area, _, _, _, _, _, _, _, _ = extract_region_props(region)
     if wound_area > min_area:
         return True
     else:
         return False
 
 
-def contour_all(wound_mask_list: List) -> List:
-    """Given a wound mask list. Will return a contour list."""
+def contour_all(mask_list: List) -> List:
+    """Given a mask list. Will return a contour list."""
     contour_list = []
-    for wound_mask in wound_mask_list:
-        contour = mask_to_contour(wound_mask)
+    for mask in mask_list:
+        contour = mask_to_contour(mask)
         contour_list.append(contour)
     return contour_list
 
@@ -1029,3 +1033,35 @@ def mask_all_dic(thresh_img_list_wound:List,thresh_img_list_tissue:List,pillar_m
         wound_mask_list.append(wound_mask)
         wound_region_list.append(wound_region)
     return tissue_mask_list, wound_mask_list, wound_region_list
+
+
+def get_roundest_regions_with_area_constraints(
+        region_props:List,
+        num_regions:int = 3,
+        min_percent_area:float=0.05,
+        max_percent_area:float=0.5,
+        img_shape:Union[List,Tuple]=(1104,1608)
+)->List:
+    img_area = img_shape[0]*img_shape[1]
+    eccentricity_list = []
+    for region in region_props:
+        eccentricity = region.eccentricity
+        area = region.area
+        if (area >= (min_percent_area*img_area)) and (area <= (max_percent_area*img_area)):
+            eccentricity_list.append(eccentricity)
+        else:
+            eccentricity_list.append(2) # will be ranked last
+    ranked = np.argsort(eccentricity_list)
+    num_to_return = np.min([len(ranked), num_regions])
+    regions_list = []
+    for kk in range(0, num_to_return):
+        idx = ranked[kk]
+        region = region_props[idx]
+        ecc = eccentricity_list[idx]
+        if ecc < 0.8:
+            regions_list.append(region)
+    if regions_list == []:
+        print('In get_roundest_regions_with_area_constraints: No regions found within area constraints, returning the original regions list.')
+        return region_props
+    else:
+        return regions_list

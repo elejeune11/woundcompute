@@ -417,7 +417,7 @@ def check_broken_tissue(tissue_mask: np.ndarray, tissue_mask_orig: np.ndarray = 
         return True
     largest_region = seg.get_largest_regions(region_props, 1)[0]
     # area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation
-    area, _, _, centroid_row, centroid_col, _, (min_row, min_col, max_row, max_col), _ = seg.extract_region_props(largest_region)
+    area, _, _, centroid_row, centroid_col, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(largest_region)
     # test if broken via being on 1 or 2 pillars (short)
     pix_mask = tissue_mask.shape[0] * tissue_mask.shape[1]
     if area < pix_mask * 0.1:
@@ -430,7 +430,7 @@ def check_broken_tissue(tissue_mask: np.ndarray, tissue_mask_orig: np.ndarray = 
     else:
         region_props = seg.get_region_props(tissue_mask_orig)
         largest_region = seg.get_largest_regions(region_props, 1)[0]
-        _, _, _, centroid_row_orig, centroid_col_orig, _, (_, _, _, _), _ = seg.extract_region_props(largest_region)
+        _, _, _, centroid_row_orig, centroid_col_orig, _, (_, _, _, _), _, _ = seg.extract_region_props(largest_region)
         mask_row_center = centroid_row_orig
         mask_col_center = centroid_col_orig
     row_fraction_offset = np.abs(centroid_row - mask_row_center) / tissue_mask.shape[0]
@@ -533,7 +533,7 @@ def check_broken_tissue_with_pillars(
         return True
     largest_region = seg.get_largest_regions(region_props, 1)[0]
     # area, axis_major_length, axis_minor_length, centroid_row, centroid_col, coords, bbox, orientation
-    area, _, _, centroid_row, centroid_col, _, (min_row, min_col, max_row, max_col), _ = seg.extract_region_props(largest_region)
+    area, _, _, centroid_row, centroid_col, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(largest_region)
     # test if broken via being on 1 or 2 pillars (short)
     pix_mask = tissue_mask.shape[0] * tissue_mask.shape[1]
     if area < pix_mask * 0.1:
@@ -545,7 +545,7 @@ def check_broken_tissue_with_pillars(
     else:
         region_props = seg.get_region_props(tissue_mask_orig)
         largest_region = seg.get_largest_regions(region_props, 1)[0]
-        _, _, _, centroid_row_orig, centroid_col_orig, _, (_, _, _, _), _ = seg.extract_region_props(largest_region)
+        _, _, _, centroid_row_orig, centroid_col_orig, _, (_, _, _, _), _, _ = seg.extract_region_props(largest_region)
         mask_row_center = centroid_row_orig
         mask_col_center = centroid_col_orig
     row_fraction_offset = np.abs(centroid_row - mask_row_center) / tissue_mask.shape[0]
@@ -678,7 +678,7 @@ def shrink_bounding_box(min_row: int, min_col: int, max_row: int, max_col: int, 
 
 def check_inside_box(region: object, bbox1: tuple, bbox2: tuple) -> bool:
     """Will check if a region is inside an admissible bounding box."""
-    _, _, _, cr, cc, _, (min_row, min_col, max_row, max_col), _ = seg.extract_region_props(region)
+    _, _, _, cr, cc, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(region)
     inside_bbox = (min_row > bbox1[0]) and (min_col > bbox1[1]) and (max_row < bbox1[2]) and (max_col < bbox1[3])
     centroid_inside_bbox = (cr > bbox2[0]) and (cc > bbox2[1]) and (cr < bbox2[2]) and (cc < bbox2[3])
     if inside_bbox and centroid_inside_bbox:
@@ -691,7 +691,7 @@ def check_wound_closed_zoom(tissue_mask: np.ndarray, wound_region: object) -> bo
     if wound_region is None:
         return True
     tissue_object = seg.get_region_props(tissue_mask)[0]
-    _, _, _, _, _, _, (min_row, min_col, max_row, max_col), _ = seg.extract_region_props(tissue_object)
+    _, _, _, _, _, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(tissue_object)
     # contract the bounding box to include only the admissible wound area
     shrink_factor = 0.0
     # whole wound must be inside this box
@@ -756,7 +756,7 @@ def check_wound_closed(tissue_mask: np.ndarray, wound_region: object):
         return True
     else:
         wound_object = wound_list[0]
-    _, _, _, _, _, _, (min_row, min_col, max_row, max_col), _ = seg.extract_region_props(tissue_object)
+    _, _, _, _, _, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(tissue_object)
     shrink_factor = 0.25
     bbox_outer = shrink_bounding_box(min_row, min_col, max_row, max_col, shrink_factor)
     shrink_factor = 0.5
@@ -798,9 +798,10 @@ def wound_parameters_all(img: np.ndarray, contour_list: List) -> List:
     area_list = []
     axis_major_length_list = []
     axis_minor_length_list = []
+    perimeter_list = []
     for contour in contour_list:
         wound_region = seg.contour_to_region(img, contour)
-        area, axis_major_length, axis_minor_length, _, _, _, _, _ = seg.extract_region_props(wound_region)
+        area, axis_major_length, axis_minor_length, _, _, _, _, _, perimeter = seg.extract_region_props(wound_region)
         if area is None:
             area_list.append(0)
         else:
@@ -813,7 +814,11 @@ def wound_parameters_all(img: np.ndarray, contour_list: List) -> List:
             axis_minor_length_list.append(0)
         else:
             axis_minor_length_list.append(axis_minor_length)
-    return area_list, axis_major_length_list, axis_minor_length_list
+        if perimeter is None:
+            perimeter_list.append(0)
+        else:
+            perimeter_list.append(perimeter)
+    return area_list, axis_major_length_list, axis_minor_length_list, perimeter_list
 
 
 def mask_to_area(mask: np.ndarray, pix_to_microns: Union[float, int] = 1):
@@ -935,3 +940,26 @@ def select_zoom_function(
         return 2
     elif input_dict["zoom_type"] == 3:
         return 3
+
+
+def compute_linear_healing_rate(area_list:List,perimeter_list:List,time_change_mins:float=30)->List:
+    """Given the area and perimeter of a wound over time, compute the linear healing rate according to Gilman's equation."""
+    len_area = len(area_list)
+    len_peri = len(perimeter_list)
+    if len_area!=len_peri:
+        raise ValueError("Area and perimeter lists must be the same length.")
+    gilmans_list = []
+    for ii in range(len_area):
+        if ii == 0:
+            gilmans_list.append(0)
+            continue
+
+        prev_area = area_list[ii-1]
+        cur_area = area_list[ii]
+        cur_peri = perimeter_list[ii]
+        if cur_area == 0 or cur_peri == 0:
+            gilmans_list.append(0)
+        else:
+            D = - (cur_area - prev_area) / (cur_peri * time_change_mins)
+            gilmans_list.append(D)
+    return gilmans_list

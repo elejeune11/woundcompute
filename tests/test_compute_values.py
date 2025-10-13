@@ -420,7 +420,7 @@ def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
     thresholded_list = seg.threshold_all(tiff_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
     contour_list = seg.contour_all(wound_mask_list)
-    area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(tiff_list[0], contour_list)
+    area_list, axis_major_length_list, axis_minor_length_list, perimeter_list = com.wound_parameters_all(tiff_list[0], contour_list)
     # area_list, axis_major_length_list, axis_minor_length_list = com.wound_parameters_all(wound_region_list)
     zoom_fcn_idx = 1
     tissue_parameter_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
@@ -430,6 +430,7 @@ def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
     assert len(area_list) == 5
     assert len(axis_major_length_list) == 5
     assert len(axis_minor_length_list) == 5
+    assert len(perimeter_list) == 5
     assert len(tissue_parameter_list) == 5
     assert np.max(area_list) < 512 * 512
     assert np.min(area_list) >= 0
@@ -437,6 +438,8 @@ def test_contour_all_and_wound_parameters_all_and_tissue_parameters_all():
     assert np.min(axis_major_length_list) >= 0
     assert np.max(axis_minor_length_list) < 512
     assert np.min(axis_minor_length_list) >= 0
+    assert np.max(perimeter_list) < 512*4
+    assert np.min(perimeter_list) >= 0
     for kk in range(0, 5):
         assert axis_major_length_list[kk] >= axis_minor_length_list[kk]
 
@@ -465,11 +468,12 @@ def test_get_tissue_width_real():
 def test_wound_parameters_all_none():
     img = np.zeros((100, 100))
     contour_list = [None, None, None]
-    area_list, maj_list, min_list = com.wound_parameters_all(img, contour_list)
+    area_list, maj_list, min_list, peri_list = com.wound_parameters_all(img, contour_list)
     for kk in range(0, 3):
         assert area_list[kk] == 0
         maj_list[kk] == 0
         min_list[kk] == 0
+        peri_list[kk] == 0
 
 
 def test_tissue_parameters_anish():
@@ -940,3 +944,11 @@ def test_select_zoom_function():
     dict = {"zoom_type": 3}
     val = com.select_zoom_function(dict)
     assert val == 3
+
+
+def test_compute_linear_healing_rate():
+    area_list = [100, 400, 100, 25]
+    perimeter_list = [40, 80, 40, 20]
+    known = [0, -300/80, 300/40, 75/20]
+    found = com.compute_linear_healing_rate(area_list, perimeter_list, 1.0)
+    assert np.allclose(known,found)
