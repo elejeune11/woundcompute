@@ -25,3 +25,4 @@ seg_dic_version: 1
 seg_dic_visualize: true
 track_dic_visualize: true
 track_pillars_dic: true
+frame_inds_to_skip: []

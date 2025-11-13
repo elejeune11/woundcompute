@@ -165,6 +165,13 @@ def test_get_local_curvature():
     assert math.isinf(kappa_1)
 
 
+def test_sort_points_counterclockwise():
+    points = np.array([[0,0],[1,1],[0,1],[1,0]])
+    known = np.array([[0,0],[1,0],[1,1],[0,1]])
+    found = com.sort_points_counterclockwise(known)
+    assert np.allclose(known,found)
+
+
 def test_mask_to_box():
     mask = np.zeros((100, 100))
     mask[25:75, 45:55] = 1
@@ -704,7 +711,7 @@ def test_is_broken_anish():
     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0],4)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],4)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list,zoom_type=2,pillar_mask_list=pillar_mask_list)
     for kk in range(0, len(is_broken_list)):
         assert is_broken_list[kk] is True

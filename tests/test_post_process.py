@@ -597,3 +597,47 @@ def test_check_potential_large_background_shift():
     )
     assert result_bool is False
     assert len(result_frames) == 0
+
+
+def test_compute_pillar_disps():
+
+    # no motion
+    pillars_pos_x = np.array([[0, 1, 0, 1], 
+                                [0, 1, 0, 1]])  # No movement
+    pillars_pos_y = np.array([[0, 0, 1, 1],
+                                [0, 0, 1, 1]])
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+        pillars_pos_x, pillars_pos_y
+    )
+    np.testing.assert_array_almost_equal(pillar_disps[1], np.zeros(4))
+    np.testing.assert_array_almost_equal(avg_pillar_disps, np.zeros(2))
+    np.testing.assert_array_almost_equal(actual_dx[1], np.zeros(4))
+    np.testing.assert_array_almost_equal(actual_dy[1], np.zeros(4))
+
+
+    # rigid body motion
+    pillars_pos_x = np.array([[0, 1, 0, 1], 
+                                [0.1, 1.1, 0.1, 1.1]])  # 2 time points, 4 pillars
+    pillars_pos_y = np.array([[0, 0, 1, 1],
+                                [0.1, 0.1, 1.1, 1.1]])
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+        pillars_pos_x, pillars_pos_y
+    )
+    zeros_arr = np.zeros_like(pillars_pos_x)
+    assert np.allclose(pillar_disps, zeros_arr)
+    assert np.allclose(actual_dx, zeros_arr)
+    assert np.allclose(actual_dy, zeros_arr)
+    assert np.allclose(avg_pillar_disps,np.zeros((2,)))
+
+
+    # pillars have actual deflection
+    # Arrange - pillars deform differently
+    pillars_pos_x = np.array([[0, 1, 0, 1], 
+                                [0.1, 1.2, 0.0, 1.0]])  # Different x movements
+    pillars_pos_y = np.array([[0, 0, 1, 1],
+                                [0.0, 0.1, 1.1, 0.9]])  # Different y movements
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+        pillars_pos_x, pillars_pos_y
+    )
+    assert not np.allclose(pillar_disps[1], 0.0)
+    assert not np.allclose(avg_pillar_disps[1], 0.0)

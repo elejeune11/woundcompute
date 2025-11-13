@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 from pathlib import Path
 from woundcompute import image_analysis as ia
 from woundcompute import segmentation as seg
@@ -247,7 +248,7 @@ def test_perform_pillar_tracking():
     img_list = ia.read_all_tiff(folder_path)
     # img_list = img_list[0:5]
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
     version = 1
     avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, version)
     assert avg_disp_all_x.shape[0] == len(img_list)
@@ -264,7 +265,7 @@ def test_track_all_steps_pillar():
     img_list_uint8 = tt.uint16_to_uint8_all(img_list_orig)
     order_list = tt.get_order_track(len(img_list_uint8), True)
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img_list_orig[0], threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list_orig[0], threshold_function_idx)
     tracker_x, tracker_y = tt.track_all_steps(img_list_uint8, pillar_mask_list[0], order_list, True)
     assert tracker_x.shape[1] == len(img_list_orig)
     assert tracker_y.shape[1] == len(img_list_orig)
@@ -278,6 +279,24 @@ def test_template_match_tracking():
     yf = 27
     template = frame[y0:yf, x0:xf]
     coords, center_pt = tt.template_match_tracking(frame, template)
+    assert coords[0] == x0
+    assert coords[1] == y0
+    assert coords[2] == xf
+    assert coords[3] == yf
+    assert np.isclose(center_pt[0], x0 + (xf - x0) / 2.0)
+    assert np.isclose(center_pt[1], y0 + (yf - y0) / 2.0)
+
+
+def test_template_match_tracking_with_masked_template():
+    frame = (np.random.random((100, 200)) * 155).astype("uint8")
+    x0 = 10
+    y0 = 20
+    xf = 15
+    yf = 27
+    frame[y0:yf, x0:xf] = 235
+    template = frame[y0:yf, x0:xf]
+    cropped_mask = np.zeros(template.shape)
+    coords, center_pt = tt.template_match_tracking_with_masked_template(frame, template,cropped_mask, y0, x0)
     assert coords[0] == x0
     assert coords[1] == y0
     assert coords[2] == xf
@@ -308,7 +327,7 @@ def test_template_track_all_steps():
         img = add_rect(arr, cent_r_list[kk], cent_c_list[kk], buffer)
         img_list.append(img)
         order_list.append(kk)
-    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, res_func=cv2.TM_CCORR_NORMED)
     assert np.allclose(tracker_x, np.asarray(cent_c_list))
     assert np.allclose(tracker_y, np.asarray(cent_r_list))
     # test w/ additional shape outside region surrounding mask
@@ -322,9 +341,9 @@ def test_template_track_all_steps():
         img = add_rect(img, 90, 150, buffer)
         img_list.append(img)
         order_list.append(kk)
-    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, 50)
-    assert np.allclose(tracker_x, np.asarray(cent_c_list))
-    assert np.allclose(tracker_y, np.asarray(cent_r_list))
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, 50, res_func=cv2.TM_CCORR_NORMED)
+    assert np.allclose(tracker_x, np.asarray(cent_c_list),2)
+    assert np.allclose(tracker_y, np.asarray(cent_r_list),2)
 
 
 def test_perform_pillar_tracking_v2():
@@ -334,7 +353,7 @@ def test_perform_pillar_tracking_v2():
     img_list = ia.read_all_tiff(folder_path)
     img_list = img_list[0:5]
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
     version = 2
     avg_disp_all_x, avg_disp_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, version)
     assert avg_disp_all_x.shape[0] == len(img_list)

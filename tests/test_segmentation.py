@@ -3,8 +3,7 @@ import numpy as np
 from pathlib import Path
 import pytest
 from scipy import ndimage
-from skimage import io
-from skimage import morphology
+from skimage import io,draw,morphology
 from woundcompute import compute_values as com
 from woundcompute import image_analysis as ia
 from woundcompute import segmentation as seg
@@ -845,14 +844,38 @@ def test_single_masks_ph1_special_cases():
     assert is_closed is False
 
 
-def test_get_pillar_mask_list():
+def test_fit_circle_to_mask():
+    mask = np.zeros((100,100))
+    rr,cc = draw.disk((25,25),20)
+    mask[rr,cc] = 1
+    _,(cent_y,cent_x,rad) = seg.fit_circle_to_mask(mask)
+
+    assert np.isclose(cent_y,25,1)
+    assert np.isclose(cent_x,25,1)
+    assert np.isclose(rad,20,1)
+
+
+def test_get_pillar_mask_list_type1():
     folder_path = example_path("test_pillar_tracking")
     _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
     folder_path = input_path_dict["ph1_images_path"]
     img_list = ia.read_all_tiff(folder_path)
     img_list = [img_list[0]]
-    threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    pillar_mask_list = seg.get_pillar_mask_list_type1(img_list[0],num_pillars_expected=4)
+    assert len(pillar_mask_list) == 4
+    for kk in range(0, 4):
+        assert np.sum(pillar_mask_list[kk]) > 10
+        assert np.min(pillar_mask_list[kk]) == 0
+        assert np.max(pillar_mask_list[kk]) == 1
+
+
+def test_get_pillar_mask_list_type2():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    pillar_mask_list = seg.get_pillar_mask_list_type2(img_list[0],4,31,31)
     assert len(pillar_mask_list) == 4
     for kk in range(0, 4):
         assert np.sum(pillar_mask_list[kk]) > 10
@@ -860,11 +883,62 @@ def test_get_pillar_mask_list():
         assert np.max(pillar_mask_list[kk]) == 1
     # test an example where only 3 pillars are picked up
     img_list = ia.read_all_tiff(folder_path)
-    img_list = [img_list[-1]]
-    threshold_function_idx = 4
+    img_list = [img_list[1]]
     mask_seg_type = 2
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx, mask_seg_type)
+    pillar_mask_list = seg.get_pillar_mask_list_type2(img_list[0],4,31,31)
     assert len(pillar_mask_list) == 3
+
+
+def test_get_pillar_mask_list():
+    folder_path = example_path("test_pillar_tracking")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
+    assert len(pillar_mask_list) == 4
+    for kk in range(0, 4):
+        assert np.sum(pillar_mask_list[kk]) > 10
+        assert np.min(pillar_mask_list[kk]) == 0
+        assert np.max(pillar_mask_list[kk]) == 1
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=2)
+    assert len(pillar_mask_list) == 4
+    for kk in range(0, 4):
+        assert np.sum(pillar_mask_list[kk]) > 10
+        assert np.min(pillar_mask_list[kk]) == 0
+        assert np.max(pillar_mask_list[kk]) == 1
+
+
+def test_select_best_pillar_mask_list_ind():
+    
+    # single method with highest number of masks
+    num_masks_list = [5, 3, 2, 1]
+    result = seg.select_best_pillar_mask_list_ind(num_masks_list)
+    assert result == 0
+    
+    # multiple methods with same highest count - user's choice (index 0) should win
+    num_masks_list = [5, 5, 3, 2]
+    result = seg.select_best_pillar_mask_list_ind(num_masks_list)
+    assert result == 0
+    
+    # multiple methods with same highest count, user's choice not in tie - newest wins
+    num_masks_list = [3, 5, 5, 2]
+    result = seg.select_best_pillar_mask_list_ind(num_masks_list)
+    assert result == 2
+    
+    # single element list
+    num_masks_list = [10]
+    result = seg.select_best_pillar_mask_list_ind(num_masks_list)
+    assert result == 0  # Only one choice
+    
+    # verify numpy array compatibility
+    num_masks_list = np.array([5, 5, 3, 2])
+    result = seg.select_best_pillar_mask_list_ind(num_masks_list)
+    assert result == 0  # Should work with numpy arrays
+    
+    # empty list
+    with pytest.raises(ValueError) as error:
+        seg.select_best_pillar_mask_list_ind([])
 
 
 # def test_mask_quadrants_img():
@@ -939,6 +1013,22 @@ def test_mask_to_template():
     assert template.shape == disk_1.shape
     template = seg.mask_to_template(pillar_mask, pillar_mask, buffer)
     assert np.allclose(template, disk_1)
+
+
+def test_mask_to_all_contours():
+    mask = np.zeros((100, 100))
+    mask[50:90, 60:80] = 1
+    contours = seg.mask_to_all_contours(mask)
+    assert len(contours) == 1
+    assert contours[0].shape[1] == 2
+    mask = np.zeros((100, 100))
+    contours = seg.mask_to_all_contours(mask)
+    assert contours == []
+    mask[50:90, 60:80]=mask[10:20,10:20] = 1
+    contours = seg.mask_to_all_contours(mask)
+    assert len(contours) == 2
+    assert contours[0].shape[1] == 2
+    assert contours[1].shape[1] == 2
 
 
 def test_contour_to_mask():
@@ -1119,7 +1209,7 @@ def test_regions_in_box():
     img_list = ia.read_all_tiff(folder_path)
     img = img_list[0]
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img, threshold_function_idx)
     pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
     pillar_box = seg.pillar_mask_to_rotated_box(pillar_mask)
     thresh_img = seg.threshold_array(img, 4)
@@ -1165,7 +1255,7 @@ def test_leverage_pillars_for_wound_seg():
     img_list = ia.read_all_tiff(folder_path)
     img = img_list[0]
     threshold_function_idx = 4
-    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img, threshold_function_idx)
     pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
     background_mask = seg.threshold_array(img, threshold_function_idx)
     tissue_mask, wound_mask, wound_region = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask,None)
@@ -1187,7 +1277,7 @@ def test_mask_all_with_pillars():
     img_list = ia.read_all_tiff(folder_path)
     threshold_function_idx = 4
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
     assert len(tissue_mask_list) == len(img_list)
     assert len(wound_mask_list) == len(img_list)
@@ -1203,7 +1293,7 @@ def test_segment_wound_and_tissue_dic():
     img_list = ia.read_all_tiff(folder_path)
     img = img_list[0]
     threshold_function_idx = 6
-    pillar_mask_list = seg.get_pillar_mask_list(img, threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img, num_pillars_expected=4, mask_seg_type=2)
     pillar_mask = seg.mask_list_to_single_mask(pillar_mask_list)
     thresholded_for_wound,thresholded_for_tissue = seg.threshold_array(img, threshold_function_idx)
     tissue_mask, wound_mask, wound_region = seg.segment_wound_and_tissue_dic(thresholded_for_wound,thresholded_for_tissue,pillar_mask,None)
@@ -1240,7 +1330,7 @@ def test_mask_all_dic():
     img_list = ia.read_all_tiff(folder_path)
     threshold_function_idx = 6
     thresholded_for_wound_seg,thresholded_for_tissue_seg = seg.threshold_all(img_list, threshold_function_idx)
-    pillar_mask_list = seg.get_pillar_mask_list(img_list[0], threshold_function_idx)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], num_pillars_expected=4, mask_seg_type=2)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_dic(thresholded_for_wound_seg,thresholded_for_tissue_seg,pillar_mask_list)
     assert len(tissue_mask_list) == len(img_list)
     assert len(wound_mask_list) == len(img_list)
@@ -1276,3 +1366,21 @@ def test_get_roundest_regions_with_area_constraints():
         region_props, num_regions, min_percent_area=0.1,max_percent_area=0.5,img_shape=blank_arr.shape
         )
     assert len(regions_list) == len(region_props)
+
+
+def test_cut_img_for_pillar_track():
+    rand_img = np.array(np.random.rand(4,4)*255,dtype=np.uint8)
+    mask = np.zeros_like(rand_img)
+    mask[0:2,0:1] = 1
+    # test without buffer
+    known_img = rand_img[0:2,0:1]
+    known_coords = np.array([0,2,0,1])
+    found_img,found_coords = seg.cut_img_for_pillar_track(rand_img,mask,buffer=0)
+    assert np.allclose(known_img,found_img)
+    assert np.allclose(known_coords,found_coords)
+    # test with buffer
+    known_img = rand_img[0:3,0:2]
+    known_coords = np.array([0,3,0,2])
+    found_img,found_coords = seg.cut_img_for_pillar_track(rand_img,mask,buffer=1)
+    assert np.allclose(known_img,found_img)
+    assert np.allclose(known_coords,found_coords)

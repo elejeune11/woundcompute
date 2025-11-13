@@ -3,8 +3,8 @@ import numpy as np
 from scipy import ndimage
 from skimage import exposure, img_as_ubyte
 from skimage import measure, morphology
-from skimage.filters import gabor_kernel, threshold_otsu, threshold_multiotsu, rank
-from skimage.measure import label, regionprops
+from skimage.filters import gabor_kernel,threshold_otsu,threshold_multiotsu,rank,sobel
+from skimage.measure import label, regionprops, CircleModel
 from typing import List, Union, Tuple
 from woundcompute import compute_values as com
 
@@ -260,13 +260,19 @@ def close_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
 
 
 def dilate_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
-    """Given an array with a small hole. Will return a closed array."""
-    # footprint = morphology.disk(radius, dtype=bool)
-    # dilated_array = morphology.binary_dilation(array, footprint)
+    """Given an array and a footprint radius. Will dilate the array and return it."""
     diameter = radius*2+1
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diameter,diameter))
     dilated_array = cv2.dilate(array.astype(np.uint8),kernel,iterations=1) > 0
     return dilated_array
+
+
+def erode_region(array: np.ndarray, radius: int = 1) -> np.ndarray:
+    """Given an array and a footprint radius. Will erode the array and return it."""
+    diameter = radius*2+1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diameter,diameter))
+    eroded_array = cv2.erode(array.astype(np.uint8),kernel,iterations=1) > 0
+    return eroded_array
 
 
 def gabor_filter(
@@ -591,53 +597,68 @@ def remove_repeat_masks(pillar_mask_list,iou_thresh=0.1):
     return new_pillar_mask_list
 
 
-# def get_pillar_mask_list(array: np.ndarray, selection_idx: int):
-#     # given the tissue mask, will create pillar masks
-#     tissue_mask, wound_mask, wound_region = isolate_masks(array, selection_idx)
-#     tissue_mask_filled = tissue_mask + wound_mask
-#     tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
-#     # isolate pillars
-#     tmf_inverted = invert_mask(tissue_mask_filled)
-#     region_props = get_region_props(tmf_inverted)
-#     num_regions = 6
-#     regions_list = get_largest_regions(region_props, num_regions)
-#     # get box and rotation of robust tissue mask
-#     # 4 corner points are ordered clockwise starting from the point with the highest y (tiebreaker: rightmost)
-#     # box is 4 (points) x 2 (dims) numpy array
-#     box = com.mask_to_box(tissue_mask_robust)
-#     selected_regions = []
-#     for kk in range(0, 4):
-#         loc_0 = box[kk, 0]
-#         loc_1 = box[kk, 1]
-#         region = get_closest_region(regions_list, loc_0, loc_1)
-#         selected_regions.append(region)
-#     pillar_mask_list = []
-#     for kk in range(0, 4):
-#         coords_list = region_to_coords([selected_regions[kk]])
-#         mask = coords_to_mask(coords_list, tissue_mask)
-#         pillar_mask_list.append(mask)
-#     return pillar_mask_list
+def fit_circle_to_mask(binary_mask):
+    """
+    Given a binary mask of an object (or multiple objects very closed together),
+    fit a circle to the mask and generate a new circular mask.
+    
+    Parameters:
+    -----------
+    binary_mask : numpy.ndarray
+        Binary mask array (2D) with True/1 for foreground, False/0 for background
+    
+    Returns:
+    --------
+    circle_mask : numpy.ndarray
+        New binary mask with the fitted circle
+    circle_params : tuple
+        (center_y, center_x, radius) of the fitted circle
+    """
+    
+    # Find contours in the binary mask
+    contours = measure.find_contours(binary_mask, level=0.5)
+    
+    if len(contours) == 0:
+        raise ValueError("No contours found in the binary mask")
+    
+    # Use the largest contour (assuming it's the main object)
+    largest_contour = max(contours, key=len)
+    
+    # Fit circle to the contour
+    circle_model = CircleModel()
+    success = circle_model.estimate(largest_contour)
+    
+    if not success:
+        raise ValueError("Failed to fit circle to the contour")
+    
+    # Get circle parameters: (center_y, center_x, radius)
+    center_y, center_x, radius = circle_model.params
+    
+    # Create coordinate arrays
+    y_coords, x_coords = np.indices(binary_mask.shape)
+    
+    # Create circular mask using the circle equation
+    circle_mask = ((x_coords - center_x)**2 + (y_coords - center_y)**2) <= radius**2
+    
+    return circle_mask, (center_y, center_x, radius)
 
 
-def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int = 1):
+def get_pillar_mask_list_type1(
+    img: np.ndarray,
+    num_pillars_expected:int=4
+):
     # get tissue
-    if selection_idx == 6:
-        thresh_img_tissue = threshold_array(img, 4)
-    else:
-        thresh_img_tissue = threshold_array(img, selection_idx)
-    tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, selection_idx)
+    thresh_img_tissue = threshold_array(img, 4)
+    tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, 4)
     tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
     # pillars tend to be dark circles with bright inside
     # img_thresh = apply_otsu_thresh(img)
-    if mask_seg_type == 1:
-        img_thresh = thresh_img_local(img)
-    else:
-        img_thresh = apply_otsu_thresh(img)
+    img_thresh = thresh_img_local(img)
     region_props = get_region_props(img_thresh)
     # remove larger regions e.g., background
     regions_list = get_regions_not_touching_bounds(region_props, img.shape)
-    regions_list = get_largest_regions(regions_list, 20)
-    regions_list = get_roundest_regions(regions_list, 6)
+    regions_list = get_largest_regions(regions_list, num_pillars_expected+15)
+    regions_list = get_roundest_regions(regions_list, num_pillars_expected+2)
     box = com.mask_to_box(tissue_mask_robust)
     selected_regions = []
     for kk in range(0, 4):
@@ -660,6 +681,155 @@ def get_pillar_mask_list(img: np.ndarray, selection_idx: int, mask_seg_type: int
     final_pillar_mask_list = remove_repeat_masks(pillar_mask_list,iou_thresh=0.1)
 
     return final_pillar_mask_list
+
+
+def get_pillar_mask_list_type2(
+    img:np.ndarray,
+    num_pillars_expected:int=4,
+    dilation_fp_radius:int=31,
+    erosion_fp_radius:int=31,
+):
+    sobel_img = sobel(img)
+    img_otsu = apply_otsu_thresh(sobel_img)
+    selem_rad = 5 # previous best 10
+    img_otsu_closed = close_region(img_otsu,selem_rad)
+    # selem_rad = 5
+    # img_otsu_closed_eroded = erode_region(img_otsu_closed,selem_rad)
+    region_props = get_region_props(img_otsu_closed)
+    region_props_largest = get_largest_regions(region_props, num_regions=num_pillars_expected+15)
+    regions_roundest_list_with_area_constraints =  get_roundest_regions_with_area_constraints(
+        region_props_largest,num_pillars_expected+2,min_percent_area=0.004,max_percent_area=0.10,img_shape=img.shape
+    )
+    regions_roundest_list = get_roundest_regions(regions_roundest_list_with_area_constraints,num_pillars_expected)
+
+    # use to arrange pillar masks. need to update for >4 pillars when necessary
+    # currently, the tissue mask is approximated as a rectangle, then the pillars are found closest to the rectangle corners
+    # for future, can use num_pillars_expected to determine the polygon shape approximation of the tissue mask
+    selection_idx = 4
+    thresh_img_tissue = threshold_array(img, selection_idx)
+    tissue_mask, wound_mask, wound_region = isolate_masks(thresh_img_tissue, selection_idx)
+    tissue_mask_robust = make_tissue_mask_robust(tissue_mask, wound_mask)
+    box = com.mask_to_box(tissue_mask_robust)
+    selected_regions_list = []
+    for kk in range(0, num_pillars_expected):
+        loc_0 = box[kk, 0]
+        loc_1 = box[kk, 1]
+        region = get_closest_region(regions_roundest_list, loc_0, loc_1)
+        selected_regions_list.append(region)
+
+    # use a combination of dilation, erosion, and contour to close the pillar regions
+    no_dilation_mask_list = []
+    dilated_mask_list = []
+    contoured_dilated_mask_list = []
+    for kk in range(len(selected_regions_list)):
+        coords_list = region_to_coords([selected_regions_list[kk]])
+        mask = coords_to_mask(coords_list, img)
+        if np.sum(mask) < (img.shape[0] * 0.05) ** 2.0:
+            continue
+
+        dilated_mask = dilate_region(mask,dilation_fp_radius)
+        mask_contour = mask_to_contour(dilated_mask)
+        contoured_dilated_mask = contour_to_mask(dilated_mask,mask_contour)
+
+        no_dilation_mask_list.append(mask)
+        dilated_mask_list.append(dilated_mask)
+        contoured_dilated_mask_list.append(contoured_dilated_mask)
+
+    # estimate the masks as circles since we know the pillars are spherical
+    circular_pm_list = []
+    eroded_circular_pm_list = []
+    for cdm in contoured_dilated_mask_list:
+        circular_pm,_ = fit_circle_to_mask(cdm)
+        eroded_circular_pm = erode_region(circular_pm,erosion_fp_radius)
+
+        circular_pm_list.append(circular_pm)
+        eroded_circular_pm_list.append(eroded_circular_pm)
+
+    # use a dilated and eroded version of the pillar regions to obtain the final masks
+    pillar_mask_list = []
+    for nn in range(len(eroded_circular_pm_list)):
+        cur_eroded_circular_mask = eroded_circular_pm_list[nn]
+        cur_circular_mask = circular_pm_list[nn]
+
+        pillar_mask = cur_circular_mask.copy()
+        pillar_mask[cur_eroded_circular_mask>0] = 0
+        pillar_mask_list.append(pillar_mask)
+    pillar_mask_list = remove_repeat_masks(pillar_mask_list,iou_thresh=0.1)
+    return pillar_mask_list
+
+
+def get_pillar_mask_list(
+    img: np.ndarray,
+    num_pillars_expected:int=4,
+    mask_seg_type: int = 2
+):
+
+    segmentation_in_process = True
+    cur_mask_seg_type = mask_seg_type
+    methods_remaining = [1,2]
+    num_pillar_masks_type1,num_pillar_masks_type2 = 0,0
+    pillar_mask_lists_list = []
+    num_masks_list = []
+    corresponding_res_func_list = []
+    while segmentation_in_process:
+
+        if cur_mask_seg_type == 1:
+            pillar_mask_list_type1 = get_pillar_mask_list_type1(img,num_pillars_expected)
+            num_pillar_masks_type1 = len(pillar_mask_list_type1)
+            methods_remaining = [method for method in methods_remaining if method != 1]
+            # append results
+            corresponding_res_func_list.append(cv2.TM_CCOEFF_NORMED)
+            pillar_mask_lists_list.append(pillar_mask_list_type1)
+            num_masks_list.append(num_pillar_masks_type1)
+        elif cur_mask_seg_type == 2:
+            pillar_mask_list_type2 = get_pillar_mask_list_type2(img,num_pillars_expected,dilation_fp_radius=31,erosion_fp_radius=31)
+            num_pillar_masks_type2 = len(pillar_mask_list_type2)
+            methods_remaining = [method for method in methods_remaining if method != 2]
+            # append results
+            corresponding_res_func_list.append(cv2.TM_CCORR)
+            pillar_mask_lists_list.append(pillar_mask_list_type2)
+            num_masks_list.append(num_pillar_masks_type2)
+        else:
+            raise Exception("Pillar mask segmentation type does not exist.")
+
+        # if the number of pillars matches the number of expected pillars, return the masks
+        if num_pillar_masks_type1 == num_pillars_expected:
+            return pillar_mask_list_type1,cv2.TM_CCOEFF_NORMED
+        elif num_pillar_masks_type2 == num_pillars_expected:
+            return pillar_mask_list_type2,cv2.TM_CCORR
+        # else, try a different method
+        elif methods_remaining != []:
+            cur_mask_seg_type = methods_remaining[-1]
+        # if all methods are used, and none matches the number of expected pillars,
+        # select best method with the function below
+        else:
+            chosen_ind = select_best_pillar_mask_list_ind(num_masks_list)
+            final_pillar_mask_list = pillar_mask_lists_list[chosen_ind]
+            final_res_func = corresponding_res_func_list[chosen_ind]
+            return final_pillar_mask_list,final_res_func
+
+
+def select_best_pillar_mask_list_ind(num_masks_list):
+    """
+    Select best pillar mask list index. Assume the first index is the user's choice of segmentation method.
+    Return the index of the pillar_mask_list with the highest number of pillars segmented.
+    If 2 or more methods have the same number of masks, return the user's choice first,
+    if user's choice is not in the list, return the newest method results.
+    """
+
+    if select_best_pillar_mask_list_ind == []:
+        raise ValueError("num_masks_list is empty.")
+
+    all_method_ind = []
+    highest_number_of_masks = np.amax(num_masks_list)
+    indices_eligible = np.argwhere(num_masks_list==highest_number_of_masks).flatten()
+
+    if len(indices_eligible) == 1:
+        return indices_eligible[0]
+    elif 0 in indices_eligible:
+        return 0
+    else:
+        return indices_eligible[-1]
 
 
 # def mask_quadrants_img(frame: np.ndarray, quadrant: int) -> np.ndarray:
@@ -717,6 +887,16 @@ def contour_to_mask(img: np.ndarray, contour: np.ndarray):
         cv2.fillPoly(mask, pts=[np.int32(contour_flip_axis)], color=(255, 0, 0))
         mask = (mask > 0).astype("uint8")
         return mask
+
+
+def mask_to_all_contours(mask: np.ndarray) -> np.ndarray:
+    contours = measure.find_contours(mask, 0.75)
+    contour_list = []
+    contour_leng = []
+    for cont in contours:
+        contour_list.append(cont)
+        contour_leng.append(cont.shape[0])
+    return contour_list
 
 
 def contour_to_mask_all(img:np.ndarray, contour_list:List)->List:
@@ -1065,3 +1245,13 @@ def get_roundest_regions_with_area_constraints(
         return region_props
     else:
         return regions_list
+
+
+def cut_img_for_pillar_track(img_uint8:np.ndarray,pillar_mask:np.ndarray,buffer: int=100)->np.ndarray:
+    """Given an image and a mask. Crop the image to the same size and location of the mask with buffer."""
+    r_min, r_max, c_min, c_max = pillar_mask_to_box(img_uint8, pillar_mask, buffer)
+    mask = np.zeros_like(img_uint8)
+    mask[r_min:r_max, c_min:c_max] = 1
+    img_masked = img_uint8 * mask
+    cut_img_masked = img_masked[r_min:r_max,c_min:c_max]
+    return cut_img_masked.astype(np.uint8), np.array([r_min,r_max,c_min,c_max])

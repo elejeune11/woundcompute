@@ -5,7 +5,6 @@ from scipy.spatial import distance
 from skimage.transform import rotate
 from scipy import ndimage
 from typing import List, Tuple, Union
-from woundcompute import compute_values as com
 from woundcompute import segmentation as seg
 
 
@@ -140,6 +139,26 @@ def get_local_curvature(contour: np.ndarray, mask: np.ndarray, ix_center: int, s
     return kappa_correct_sign
 
 
+def sort_points_counterclockwise(points:np.ndarray, center:np.ndarray=None, clockwise:bool=False)->np.ndarray:
+    if center is None:
+        center = np.mean(points, axis=0)
+    
+    # Calculate vectors from center
+    vectors = points - center
+    
+    # Calculate angles
+    angles = np.arctan2(vectors[:, 1], vectors[:, 0])
+    
+    # Convert to clockwise if needed
+    if clockwise:
+        angles = -angles
+    
+    # Sort by angle
+    sorted_indices = np.argsort(angles)
+    
+    return points[sorted_indices]
+
+
 def mask_to_box(mask: np.ndarray, border: int = 0) -> np.ndarray:
     """Given a mask. Will return the minimum area bounding rectangle."""    
     # insert borders to the mask
@@ -155,7 +174,8 @@ def mask_to_box(mask: np.ndarray, border: int = 0) -> np.ndarray:
     # find minimum area bounding rectangle
     rect = cv2.minAreaRect(coordinates)
     box = np.int0(cv2.boxPoints(rect))
-    return box
+    sorted_box = sort_points_counterclockwise(box)
+    return sorted_box
 
 
 def axis_from_mask(mask: np.ndarray) -> np.ndarray:
@@ -400,9 +420,9 @@ def tissue_parameters_all(tissue_mask_list: List, wound_mask_list: List, zoom_fc
     parameter_list = []
     for kk in range(0, len(tissue_mask_list)):
         if zoom_fcn_idx == 1:
-            width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, _ = com.tissue_parameters_zoom(tissue_mask_list[kk], wound_mask_list[kk])
+            width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, _ = tissue_parameters_zoom(tissue_mask_list[kk], wound_mask_list[kk])
         elif zoom_fcn_idx == 2:
-            width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, _ = com.tissue_parameters(tissue_mask_list[kk], wound_mask_list[kk])
+            width, area, kappa_1, kappa_2, pt1_0, pt1_1, pt2_0, pt2_1, _ = tissue_parameters(tissue_mask_list[kk], wound_mask_list[kk])
         param = [area, pt1_0, pt1_1, pt2_0, pt2_1, width, kappa_1, kappa_2]
         parameter_list.append(param)
     return parameter_list

@@ -426,3 +426,29 @@ def check_potential_large_background_shift(pillar_x_locs:np.ndarray,pillar_y_loc
     px_disp_between_frames,py_disp_between_frames = compute_pillar_disps_between_frames(pillar_x_locs,pillar_y_locs)
     is_potential_shift,large_disp_frame_ind = check_large_pillar_disps(px_disp_between_frames,py_disp_between_frames,disp_thresh)
     return is_potential_shift,large_disp_frame_ind
+
+
+def compute_pillar_disps(
+    pillars_pos_x:np.ndarray,
+    pillars_pos_y:np.ndarray,
+    ):
+    """
+    Compute the absolute pillar displacements and average pillar displacements,
+    after removing background drift.
+    """
+    
+    dx_measured = pillars_pos_x - pillars_pos_x[0,:]
+    dy_measured = pillars_pos_y - pillars_pos_y[0,:]
+
+    dx_drift = np.sum(dx_measured,axis=1)/4
+    dy_drift = np.sum(dy_measured,axis=1)/4
+    dx_drift = dx_drift.reshape(-1,1)
+    dy_drift = dy_drift.reshape(-1,1)
+
+    actual_dx = dx_measured - dx_drift
+    actual_dy = dy_measured - dy_drift
+    
+    abs_actual_pillar_disps = np.sqrt(actual_dx**2 + actual_dy**2)
+    avg_actual_disps = np.sum(abs_actual_pillar_disps,axis=1)/4
+
+    return abs_actual_pillar_disps,avg_actual_disps,actual_dx,actual_dy
