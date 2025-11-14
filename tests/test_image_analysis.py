@@ -970,7 +970,7 @@ def test_show_and_save_pillar_disps_and_contours():
         avg_pillar_disps,
         output_path
     )
-    output_file = output_path / "pillar_disps_and_pillar_contours*.png"
+    output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
     assert output_file.exists()
 
 
