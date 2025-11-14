@@ -962,7 +962,6 @@ def test_show_and_save_pillar_disps_and_contours():
     pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
     pillars_pos_x,pillars_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list,2)
     pillar_disps,avg_pillar_disps,_,_=pp.compute_pillar_disps(pillars_pos_x,pillars_pos_y)
-    output_path = files_path()
     ia.show_and_save_pillar_disps_and_contours(
         img_list[0],
         pillar_mask_list,
