@@ -978,11 +978,12 @@ def run_segment(
         return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
 
     # read the inputs
-    img_list = read_all_tiff(input_path,frame_inds_to_skip)
-
     if is_bs:
         # if the images are taken before seeding, there should be no tissue or wound to segment.
+        img_list = read_all_tiff(input_path,[])
         return [], [], [], None, None, None, None, None, None, img_list, [], [], [], [], []
+    else:
+        img_list = read_all_tiff(input_path,frame_inds_to_skip)
     
     # apply threshold
     if threshold_function_idx == 6:
@@ -1065,7 +1066,8 @@ def run_segment_bi(
 ) -> List:
     """Function to run segmentation for before injury (bi) microtissues."""
     # read the inputs
-    img_list = read_all_tiff(input_path,frame_inds_to_skip)
+    # no need to frame skip for tissue bi
+    img_list = read_all_tiff(input_path,[])
     # apply threshold
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     # masking
