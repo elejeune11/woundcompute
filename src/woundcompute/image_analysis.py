@@ -1,6 +1,8 @@
 import glob
 import imageio.v2 as imageio
 import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg') # # Use Agg backend for non-GUI environments
 import numpy as np
 import os
 from pathlib import Path
@@ -411,6 +413,7 @@ def create_folder(folder_path: Path, new_folder_name: str) -> Path:
     new_path = folder_path.joinpath(new_folder_name).resolve()
     if new_path.exists() is True:
         shutil.rmtree(new_path, ignore_errors=True)
+        time.sleep(0.1)
     os.mkdir(new_path)
     return new_path
 
@@ -1501,9 +1504,13 @@ def run_texture_tracking_pillars(img_list:List, output_path: Path, mask_seg_type
     # save data
     path_pos_x = output_path.joinpath("pillar_tracker_x.txt").resolve()
     path_pos_y = output_path.joinpath("pillar_tracker_y.txt").resolve()
+    path_abs_pillar_disps = output_path.joinpath("pillar_disps_actual.txt").resolve()
+    path_avg_pillar_disps = output_path.joinpath("avg_pillar_disps_actual.txt").resolve()
 
     np.savetxt(str(path_pos_x), avg_pos_all_x)
     np.savetxt(str(path_pos_y), avg_pos_all_y)
+    np.savetxt(str(path_abs_pillar_disps), pillar_disps)
+    np.savetxt(str(path_avg_pillar_disps), avg_pillar_disps)
 
     return pillar_mask_list, avg_pos_all_x, avg_pos_all_y, path_pos_x, path_pos_y
 
