@@ -2,7 +2,7 @@ import glob
 import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import matplotlib
-matplotlib.use('Agg') # # Use Agg backend for non-GUI environments
+# matplotlib.use('Agg') # # Use Agg backend for non-GUI environments
 import numpy as np
 import os
 from pathlib import Path
