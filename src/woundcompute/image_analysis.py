@@ -413,8 +413,9 @@ def create_folder(folder_path: Path, new_folder_name: str) -> Path:
     new_path = folder_path.joinpath(new_folder_name).resolve()
     if new_path.exists() is True:
         shutil.rmtree(new_path, ignore_errors=True)
-        time.sleep(0.1)
-    os.mkdir(new_path)
+        time.sleep(1)
+    if new_path.exists() is False:
+        os.mkdir(new_path)
     return new_path
 
 
