@@ -1491,12 +1491,20 @@ def show_and_save_pillar_disps_and_contours(
     return
 
 
-def run_texture_tracking_pillars(img_list:List, output_path: Path, mask_seg_type:int=2, frame_inds_to_skip:List=None):
+def run_texture_tracking_pillars(
+    img_list:List,
+    output_path:Path,
+    mask_seg_type:int=2,
+    is_bs:bool=False,
+    frame_inds_to_skip:List=None):
 
     first_img = img_list[0]
-    pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list(first_img,num_pillars_expected=4,mask_seg_type=mask_seg_type)
+    if is_bs:
+        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list_no_tissue(first_img,num_pillars_expected=4,outer_circle_pillar_radius=130,inner_circle_pillar_radius=105)
+    else:
+        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list(first_img,num_pillars_expected=4,mask_seg_type=mask_seg_type)
     avg_pos_all_x, avg_pos_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, res_func=corresponding_res_func)
-    pillar_disps,avg_pillar_disps,_,_=pp.compute_pillar_disps(avg_pos_all_x,avg_pos_all_y)
+    pillar_disps,avg_pillar_disps,_,_=pp.compute_absolute_actual_pillar_disps(avg_pos_all_x,avg_pos_all_y)
 
     # sample_name = output_path.parent.name
     # basename_exp = output_path.parent.parent.name
@@ -1770,14 +1778,14 @@ def run_all(folder_path: Path) -> List:
         output_path = output_path_dict["track_pillars_ph1_path"]
         input_path = input_path_dict["ph1_images_path"]
         img_list_ph1 = read_all_tiff(input_path,frame_inds_to_skip)
-        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_ph1, output_path, mask_seg_type=2,frame_inds_to_skip=frame_inds_to_skip)
+        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_ph1, output_path, mask_seg_type=2,is_bs=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
         time_all.append(time.time())
         action_all.append("run pillar texture tracking")
     if input_dict["track_pillars_dic"] is True:
         output_path = output_path_dict["track_pillars_dic_path"]
         input_path = input_path_dict["dic_images_path"]
         img_list_dic = read_all_tiff(input_path,frame_inds_to_skip)
-        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_dic, output_path, mask_seg_type=2,frame_inds_to_skip=frame_inds_to_skip)
+        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_dic, output_path, mask_seg_type=2,is_bs=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
         time_all.append(time.time())
         action_all.append("run pillar texture tracking")
     if input_dict["segment_ph1"] is True:

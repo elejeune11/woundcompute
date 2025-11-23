@@ -428,7 +428,7 @@ def check_potential_large_background_shift(pillar_x_locs:np.ndarray,pillar_y_loc
     return is_potential_shift,large_disp_frame_ind
 
 
-def compute_pillar_disps(
+def compute_absolute_actual_pillar_disps(
     pillars_pos_x:np.ndarray,
     pillars_pos_y:np.ndarray,
     ):

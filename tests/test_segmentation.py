@@ -341,6 +341,19 @@ def test_region_to_coords():
     assert coords_list[0].shape[1] == 2
 
 
+def test_get_regions_near_box_corners():
+    arr = np.zeros((100,100))
+    arr[10:20,10:20] = 1
+    arr[10:20,80:90] = 2
+    arr[80:90,10:20] = 3
+    arr[80:90,80:90] = 4
+    regions_list = seg.get_region_props(arr)
+    box = np.array([[10,10],[10,80],[80,80],[80,10]])
+    aligned_regions_list = seg.get_regions_near_box_corners(regions_list,box)
+    # the actual location testing is done in get_closest_region
+    assert len(aligned_regions_list) == 4
+
+
 def test_coords_to_mask():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
@@ -427,6 +440,17 @@ def test_apply_thresh_multiotsu():
     known = arr > 0
     found = seg.apply_thresh_multiotsu(arr)
     assert np.allclose(known, found)
+
+
+def test_apply_lowest_thresh_multiotsu():
+    dim = 100
+    arr = np.zeros((dim,dim))
+    arr[0:10,0:10] = 1
+    arr[15:20,15:20] = 2
+    arr[30:40,30:40] = 3
+    known = arr == 0
+    found = seg.apply_lowest_thresh_multiotsu(arr,3)
+    assert np.allclose(known,found)
 
 
 def test_threshold_all():
@@ -855,6 +879,16 @@ def test_fit_circle_to_mask():
     assert np.isclose(rad,20,1)
 
 
+def test_create_circular_masks():
+    centers = np.array([[20,20],[40,40]])
+    masks = seg.create_circular_masks(centers,5,100,100)
+    mask_region1 = seg.get_region_props(masks[0])[0]
+    mask_region2 = seg.get_region_props(masks[1])[0]
+    assert len(masks) == 2
+    assert np.allclose(mask_region1.centroid,[20,20])
+    assert np.allclose(mask_region2.centroid,[40,40])
+
+
 def test_get_pillar_mask_list_type1():
     folder_path = example_path("test_pillar_tracking")
     _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
@@ -902,6 +936,20 @@ def test_get_pillar_mask_list():
         assert np.min(pillar_mask_list[kk]) == 0
         assert np.max(pillar_mask_list[kk]) == 1
     pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=2)
+    assert len(pillar_mask_list) == 4
+    for kk in range(0, 4):
+        assert np.sum(pillar_mask_list[kk]) > 10
+        assert np.min(pillar_mask_list[kk]) == 0
+        assert np.max(pillar_mask_list[kk]) == 1
+
+
+def test_get_pillar_mask_list_no_tissue():
+    folder_path = example_path("test_pillar_tracking_no_tissue")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list = [img_list[0]]
+    pillar_mask_list,_ = seg.get_pillar_mask_list_no_tissue(img_list[0],4,130,105)
     assert len(pillar_mask_list) == 4
     for kk in range(0, 4):
         assert np.sum(pillar_mask_list[kk]) > 10
@@ -1384,3 +1432,21 @@ def test_cut_img_for_pillar_track():
     found_img,found_coords = seg.cut_img_for_pillar_track(rand_img,mask,buffer=1)
     assert np.allclose(known_img,found_img)
     assert np.allclose(known_coords,found_coords)
+
+
+def test_erode_pillar_masks_to_pillar_edges():
+    dim = 100
+    img_arr = np.array(np.random.rand(dim,dim)*255,dtype=np.uint8)
+    img_arr[30:50,30:50] = 0
+    binary_mask = np.zeros((dim,dim))
+    binary_mask[20:60,20:60] = 1
+    refined_mask = seg.erode_pillar_masks_to_pillar_edges([binary_mask],img_arr)
+
+    inds_where_refined_mask = np.argwhere(refined_mask==1)
+    num_pixels_in_found=len(inds_where_refined_mask)
+    num_pixels_in_og_mask=len(np.argwhere(binary_mask==1))
+    assert num_pixels_in_found<num_pixels_in_og_mask
+    assert np.all(inds_where_refined_mask[:,0] >= 30)
+    assert np.all(inds_where_refined_mask[:,0] <= 50)
+    assert np.all(inds_where_refined_mask[:,1] >= 30)
+    assert np.all(inds_where_refined_mask[:,1] <= 50)

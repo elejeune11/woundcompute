@@ -599,14 +599,14 @@ def test_check_potential_large_background_shift():
     assert len(result_frames) == 0
 
 
-def test_compute_pillar_disps():
+def test_compute_absolute_actual_pillar_disps():
 
     # no motion
     pillars_pos_x = np.array([[0, 1, 0, 1], 
                                 [0, 1, 0, 1]])  # No movement
     pillars_pos_y = np.array([[0, 0, 1, 1],
                                 [0, 0, 1, 1]])
-    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_absolute_actual_pillar_disps(
         pillars_pos_x, pillars_pos_y
     )
     np.testing.assert_array_almost_equal(pillar_disps[1], np.zeros(4))
@@ -620,7 +620,7 @@ def test_compute_pillar_disps():
                                 [0.1, 1.1, 0.1, 1.1]])  # 2 time points, 4 pillars
     pillars_pos_y = np.array([[0, 0, 1, 1],
                                 [0.1, 0.1, 1.1, 1.1]])
-    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_absolute_actual_pillar_disps(
         pillars_pos_x, pillars_pos_y
     )
     zeros_arr = np.zeros_like(pillars_pos_x)
@@ -636,7 +636,7 @@ def test_compute_pillar_disps():
                                 [0.1, 1.2, 0.0, 1.0]])  # Different x movements
     pillars_pos_y = np.array([[0, 0, 1, 1],
                                 [0.0, 0.1, 1.1, 0.9]])  # Different y movements
-    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_pillar_disps(
+    pillar_disps, avg_pillar_disps, actual_dx, actual_dy = pp.compute_absolute_actual_pillar_disps(
         pillars_pos_x, pillars_pos_y
     )
     assert not np.allclose(pillar_disps[1], 0.0)

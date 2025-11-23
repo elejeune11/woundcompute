@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from scipy import ndimage
 from skimage import exposure, img_as_ubyte
-from skimage import measure, morphology
+from skimage import measure, morphology, draw
 from skimage.filters import gabor_kernel,threshold_otsu,threshold_multiotsu,rank,sobel
 from skimage.measure import label, regionprops, CircleModel
 from typing import List, Union, Tuple
@@ -211,6 +211,16 @@ def region_to_coords(regions_list: List) -> List:
     return coords_list
 
 
+def get_regions_near_box_corners(regions_list,box):
+    selected_regions = []
+    for kk in range(0, len(box)):
+        loc_0 = box[kk, 0]
+        loc_1 = box[kk, 1]
+        region = get_closest_region(regions_list, loc_0, loc_1)
+        selected_regions.append(region)
+    return selected_regions
+
+
 def coords_to_mask(coords_list: List, array: np.ndarray) -> np.ndarray:
     """Given coordinates and template array. Will turn coordinates into a binary mask."""
     mask = np.zeros(array.shape)
@@ -337,6 +347,13 @@ def apply_thresh_multiotsu(array: np.ndarray):
     regions = np.digitize(array, bins=thresholds)
     foreground = regions > 0
     return foreground
+
+
+def apply_lowest_thresh_multiotsu(array:np.ndarray,n_classes:int=4,nbins:int=256):
+    hist,bin_edges = np.histogram(array,bins=nbins)
+    bin_thresholded_inds = threshold_multiotsu(classes=n_classes,nbins=nbins,hist=hist)
+    bin_img = array < bin_edges[bin_thresholded_inds[0]]
+    return bin_img
 
 
 def threshold_array(array: np.ndarray, selection_idx: int) -> np.ndarray:
@@ -643,6 +660,30 @@ def fit_circle_to_mask(binary_mask):
     return circle_mask, (center_y, center_x, radius)
 
 
+def create_circular_masks(centers, radius, image_width, image_height):
+    """
+    Create binary circular masks for given centers
+    
+    Args:
+        centers: List of (x, y) coordinates
+        radius: Radius of circles
+        image_width: Width of the output image
+        image_height: Height of the output image
+    
+    Returns:
+        List of binary masks
+    """
+    masks = []
+    
+    for center in centers:
+        mask = np.zeros((image_height, image_width), dtype=np.uint8)
+        rr, cc = draw.disk(center, radius, shape=(image_height, image_width))
+        mask[rr, cc] = 1
+        masks.append(mask)
+    
+    return masks
+
+
 def get_pillar_mask_list_type1(
     img: np.ndarray,
     num_pillars_expected:int=4
@@ -807,6 +848,80 @@ def get_pillar_mask_list(
             final_pillar_mask_list = pillar_mask_lists_list[chosen_ind]
             final_res_func = corresponding_res_func_list[chosen_ind]
             return final_pillar_mask_list,final_res_func
+
+
+def get_pillar_mask_list_no_tissue(
+    img:np.ndarray,
+    num_pillars_expected:int=4,
+    outer_circle_pillar_radius:int=130,
+    inner_circle_pillar_radius:int=105,
+):
+    img_h,img_w = img.shape
+
+    bin_img = apply_lowest_thresh_multiotsu(img)
+
+    region_props = get_region_props(bin_img)
+    regions_largest_list = get_largest_regions(region_props, 20)
+    regions_roundest_list = get_roundest_regions_with_area_constraints(
+            regions_largest_list, 6, min_percent_area=0.001,max_percent_area=0.25,img_shape=img.shape
+            ) 
+
+    if len(regions_roundest_list) <= num_pillars_expected:
+        selected_regions_list=regions_roundest_list
+    else:
+        box = np.array([[0,0],[0,img_w],[img_h,img_w],[img_h,0]])
+        selected_regions_list=get_regions_near_box_corners(regions_roundest_list,box)
+
+    initial_pillar_mask_list = []
+    for kk in range(0, len(selected_regions_list)):
+        coords_list = region_to_coords([selected_regions_list[kk]])
+        mask = coords_to_mask(coords_list, img)
+        # dilate mask a little bit to get more edges in there
+        filter_size = 2 # previously 2
+        mask = apply_gaussian_filter(mask, filter_size)
+        mask = mask > 0
+        initial_pillar_mask_list.append(mask)
+
+    initial_pillar_mask_list = remove_repeat_masks(initial_pillar_mask_list,iou_thresh=0.1)
+
+    # need to put everything below to the get_pillar_masks_no_tissue function
+    pillar_contour_list = contour_all(initial_pillar_mask_list)
+    closed_pm_list = contour_to_mask_all(img, pillar_contour_list)
+
+    eroded_to_edge_pms = erode_pillar_masks_to_pillar_edges(
+        closed_pm_list, img, dark_pixel_frac_thresh=0.8, max_erosion_iterations=50, erosion_kernel_size=3
+    )
+
+    # small_dot_masks_list = []
+    mask_centroids_list = []
+    for kk in range(len(eroded_to_edge_pms)):
+        mask = eroded_to_edge_pms[kk]
+
+        dilate_radius = 31
+        dilated_mask = dilate_region(mask,dilate_radius)
+        mask_contour = mask_to_contour(dilated_mask)
+        contoured_dilated_mask = contour_to_mask(dilated_mask,mask_contour)
+        circular_pm,_ = fit_circle_to_mask(contoured_dilated_mask)
+        circular_pm_prop = get_region_props(circular_pm)[0]
+        cent_r,cent_c = circular_pm_prop.centroid
+        mask_centroids_list.append([int(cent_r),int(cent_c)])
+    sorted_mask_centroids_arr = com.sort_points_counterclockwise(np.array(mask_centroids_list))
+
+    # get the inner and outer parts of the pillars given the center
+    big_circular_masks = create_circular_masks(sorted_mask_centroids_arr,outer_circle_pillar_radius,img_w,img_h)
+    small_circular_masks = create_circular_masks(sorted_mask_centroids_arr,inner_circle_pillar_radius,img_w,img_h)
+
+    # use a dilated and eroded version of the pillar regions to obtain the final masks
+    pillar_mask_list = []
+    for nn in range(len(big_circular_masks)):
+        big_c_mask = big_circular_masks[nn]
+        small_c_mask = small_circular_masks[nn]
+
+        pillar_mask = big_c_mask.copy()
+        pillar_mask[small_c_mask>0] = 0
+        pillar_mask_list.append(pillar_mask)
+
+    return pillar_mask_list,cv2.TM_CCOEFF_NORMED
 
 
 def select_best_pillar_mask_list_ind(num_masks_list):
@@ -1255,3 +1370,53 @@ def cut_img_for_pillar_track(img_uint8:np.ndarray,pillar_mask:np.ndarray,buffer:
     img_masked = img_uint8 * mask
     cut_img_masked = img_masked[r_min:r_max,c_min:c_max]
     return cut_img_masked.astype(np.uint8), np.array([r_min,r_max,c_min,c_max])
+
+
+def erode_pillar_masks_to_pillar_edges(binary_masks, original_gray_image, dark_pixel_frac_thresh=0.8, max_erosion_iterations=50, erosion_kernel_size=3):
+    """
+    Refine pillar masks by shrinking them until they align with black edges.
+    
+    Parameters:
+    - binary_masks: Binary mask array (H, W) or list of masks
+    - original_gray_image: Original grayscale image
+    - max_erosion_iterations: Number of erosion steps (start with 1)
+    - erosion_kernel_size: Size of the circular erosion kernel
+    
+    Returns:
+    - refined_masks: List of refined binary masks
+    """
+    
+    # Create circular kernel for erosion
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (erosion_kernel_size, erosion_kernel_size))
+    
+    # If single mask, convert to list
+    if isinstance(binary_masks, np.ndarray) and binary_masks.ndim == 2:
+        masks = [binary_masks]
+    else:
+        masks = binary_masks
+    
+    refined_masks = []
+    
+    for mask in masks:
+        current_mask = mask.copy()
+        selected_mask = current_mask.copy()
+        highest_dark_pixel_ratio = com.compute_dark_pixels_ratio_at_mask_edge(selected_mask, original_gray_image)
+        
+        # Perform iterative erosion
+        for i in range(max_erosion_iterations):
+            eroded_mask = cv2.erode(current_mask.astype(np.uint8), kernel, iterations=1)
+            
+            # Check if we should stop eroding (optional - based on edge intensity)
+            dark_pixel_ratio=com.compute_dark_pixels_ratio_at_mask_edge(eroded_mask, original_gray_image)
+            if dark_pixel_ratio > dark_pixel_frac_thresh:
+                selected_mask = eroded_mask > 0
+                highest_dark_pixel_ratio = dark_pixel_ratio
+                break
+            elif dark_pixel_ratio > highest_dark_pixel_ratio:
+                selected_mask = eroded_mask > 0
+                highest_dark_pixel_ratio = dark_pixel_ratio
+                
+            current_mask = eroded_mask > 0
+        refined_masks.append(selected_mask)
+    
+    return refined_masks if len(refined_masks) > 1 else refined_masks[0]

@@ -959,3 +959,17 @@ def test_compute_linear_healing_rate():
     known = [0, -300/80, 300/40, 75/20]
     found = com.compute_linear_healing_rate(area_list, perimeter_list, 1.0)
     assert np.allclose(known,found)
+
+
+def test_compute_dark_pixels_ratio_at_mask_edge():
+    dim = 100
+    img_arr = np.ones((dim,dim))
+    img_arr[30:50,30:50] = 0
+    binary_mask = np.zeros((dim,dim))
+    binary_mask[20:60,20:60] = 1
+    found_dark_pixel_ratio1 = com.compute_dark_pixels_ratio_at_mask_edge(binary_mask,img_arr)
+    assert found_dark_pixel_ratio1 < 0.05
+    binary_mask2 = np.zeros((dim,dim))
+    binary_mask2[30:50,30:50] = 1
+    found_dark_pixel_ratio2 = com.compute_dark_pixels_ratio_at_mask_edge(binary_mask2,img_arr)
+    assert found_dark_pixel_ratio2 > 0.50

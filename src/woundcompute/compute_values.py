@@ -142,20 +142,14 @@ def get_local_curvature(contour: np.ndarray, mask: np.ndarray, ix_center: int, s
 def sort_points_counterclockwise(points:np.ndarray, center:np.ndarray=None, clockwise:bool=False)->np.ndarray:
     if center is None:
         center = np.mean(points, axis=0)
-    
-    # Calculate vectors from center
+
     vectors = points - center
-    
-    # Calculate angles
     angles = np.arctan2(vectors[:, 1], vectors[:, 0])
-    
-    # Convert to clockwise if needed
+
     if clockwise:
         angles = -angles
-    
-    # Sort by angle
+
     sorted_indices = np.argsort(angles)
-    
     return points[sorted_indices]
 
 
@@ -983,3 +977,25 @@ def compute_linear_healing_rate(area_list:List,perimeter_list:List,time_change_m
             D = - (cur_area - prev_area) / (cur_peri * time_change_mins)
             gilmans_list.append(D)
     return gilmans_list
+
+
+def compute_dark_pixels_ratio_at_mask_edge(mask, gray_image):
+
+    # Find edges of the mask
+    mask_edges = cv2.Canny((mask * 255).astype(np.uint8), 50, 150)
+    
+    # Get intensity values at mask edges
+    edge_coords = np.where(mask_edges > 0)
+    if len(edge_coords[0]) == 0:
+        return False
+    
+    edge_intensities = gray_image[edge_coords]
+    
+    # Use threshold Otsu to separate the dark and light pixels
+    edge_otsu_val = seg.threshold_otsu(edge_intensities)
+    edge_otsu_dark = edge_intensities < edge_otsu_val
+
+    # Calculate dark pixel ratio
+    dark_pixel_ratio = np.sum(edge_otsu_dark) / len(edge_otsu_dark)
+
+    return dark_pixel_ratio
