@@ -77,7 +77,7 @@ def show_and_save_contour(
     return
 
 
-def show_and_save_contour_and_width(
+def show_and_save_tissue_wound_pillar_contours(
     img_array: np.ndarray,
     tissue_contour: np.ndarray,
     wound_contour: np.ndarray,
@@ -620,7 +620,7 @@ def save_all_img_with_contour(
     return file_name_list
 
 
-def save_all_img_with_contour_and_width(
+def save_all_img_with_tissue_wound_pillar_contours(
     folder_path: Path,
     file_name: str,
     img_list: List,
@@ -692,7 +692,7 @@ def save_all_img_with_contour_and_width(
             tp = tissue_parameters_list[kk]
             points = [[tp[1], tp[3]], [tp[2], tp[4]]]
             title = "frame %05d" % (displayed_frame_ind)
-            broken_frame,closed_frame=show_and_save_contour_and_width(img, tissue_cont, wound_cont, is_broken, is_closed, points, save_path, title=title,
+            broken_frame,closed_frame=show_and_save_tissue_wound_pillar_contours(img, tissue_cont, wound_cont, is_broken, is_closed, points, save_path, title=title,
                                             frame_num = kk,broken_frame=broken_frame,closed_frame=closed_frame,
                                             pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours_lists_list=pillar_contours_lists_list)
         
@@ -919,9 +919,11 @@ def subtract_moving_pillar_from_tissue(
         # Shift the pillar mask using scipy.ndimage.shift
         shifted_pillar = shift(pillar_mask.astype(float), shift=shift_vec, order=0, mode='constant', cval=0)
         shifted_pillar = (shifted_pillar > 0.5).astype(np.uint8)
+        shifted_pillar_contour = seg.mask_to_contour(shifted_pillar)
+        shifted_pillar_filled = seg.contour_to_mask(shifted_pillar,shifted_pillar_contour)
 
         # Subtract shifted pillar from tissue mask
-        result_masks[t] = np.logical_and(result_masks[t], np.logical_not(shifted_pillar)).astype(np.uint8)
+        result_masks[t] = np.logical_and(result_masks[t], np.logical_not(shifted_pillar_filled)).astype(np.uint8)
 
     return result_masks
 
@@ -1216,7 +1218,7 @@ def run_seg_visualize(
 ) -> tuple:
     """Given input and output information. Run segmentation visualization."""
     # path_list = save_all_img_with_contour(output_path, fname, img_list, contour_list, is_broken_list, is_closed_list)
-    path_list = save_all_img_with_contour_and_width(output_path, fname, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list,avg_pos_all_x,avg_pos_all_y,pillar_masks,is_in_bi_folder,is_in_bs_folder,frame_inds_to_skip)
+    path_list = save_all_img_with_tissue_wound_pillar_contours(output_path, fname, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list,avg_pos_all_x,avg_pos_all_y,pillar_masks,is_in_bi_folder,is_in_bs_folder,frame_inds_to_skip)
     gif_path = create_gif(output_path, fname, path_list)
     return (path_list, gif_path)
 

@@ -289,7 +289,7 @@ def template_match_tracking_with_masked_template(
     return np.array([x0, y0, xf, yf]), center_pt
 
 
-def template_track_all_steps(img_list_uint8, pillar_mask, order_list, pillar_mask_buffer: int = 100,res_func=cv2.TM_CCORR):
+def template_track_all_steps(img_list_uint8, pillar_mask, order_list, pillar_mask_buffer: int = 200,res_func=cv2.TM_CCORR):
     time_0 = order_list[0]
     template = seg.mask_to_template(img_list_uint8[time_0], pillar_mask)
     pillar_mask_cropped_to_template = seg.mask_to_template(pillar_mask,pillar_mask)

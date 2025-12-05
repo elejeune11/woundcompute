@@ -698,7 +698,7 @@ def get_pillar_mask_list_type1(
     region_props = get_region_props(img_thresh)
     # remove larger regions e.g., background
     regions_list = get_regions_not_touching_bounds(region_props, img.shape)
-    regions_list = get_largest_regions(regions_list, num_pillars_expected+15)
+    regions_list = get_largest_regions(regions_list, num_pillars_expected+16)
     regions_list = get_roundest_regions(regions_list, num_pillars_expected+2)
     box = com.mask_to_box(tissue_mask_robust)
     selected_regions = []
@@ -737,7 +737,7 @@ def get_pillar_mask_list_type2(
     # selem_rad = 5
     # img_otsu_closed_eroded = erode_region(img_otsu_closed,selem_rad)
     region_props = get_region_props(img_otsu_closed)
-    region_props_largest = get_largest_regions(region_props, num_regions=num_pillars_expected+15)
+    region_props_largest = get_largest_regions(region_props, num_regions=num_pillars_expected+16)
     regions_roundest_list_with_area_constraints =  get_roundest_regions_with_area_constraints(
         region_props_largest,num_pillars_expected+2,min_percent_area=0.004,max_percent_area=0.10,img_shape=img.shape
     )
@@ -1356,7 +1356,6 @@ def get_roundest_regions_with_area_constraints(
         if ecc < 0.8:
             regions_list.append(region)
     if regions_list == []:
-        print('In get_roundest_regions_with_area_constraints: No regions found within area constraints, returning the original regions list.')
         return region_props
     else:
         return regions_list
