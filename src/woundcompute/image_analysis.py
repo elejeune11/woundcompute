@@ -677,7 +677,7 @@ def save_all_img_with_tissue_wound_pillar_contours(
                 )
         elif is_in_bi_folder:
             show_and_save_bi_tissue(
-                img_array=img,is_broken=is_broken_list[kk],save_path=save_path,frame_num=kk,
+                img_array=img,is_broken=is_broken_list[kk],save_path=save_path,frame_num=frame_inds_map[kk],
                 title=f"before injury frame {displayed_frame_ind}",pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours=pillar_contours_lists_list
                 )
         else:
@@ -693,7 +693,7 @@ def save_all_img_with_tissue_wound_pillar_contours(
             points = [[tp[1], tp[3]], [tp[2], tp[4]]]
             title = "frame %05d" % (displayed_frame_ind)
             broken_frame,closed_frame=show_and_save_tissue_wound_pillar_contours(img, tissue_cont, wound_cont, is_broken, is_closed, points, save_path, title=title,
-                                            frame_num = kk,broken_frame=broken_frame,closed_frame=closed_frame,
+                                            frame_num = frame_inds_map[kk],broken_frame=broken_frame,closed_frame=closed_frame,
                                             pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours_lists_list=pillar_contours_lists_list)
         
         file_name_list.append(save_path)
