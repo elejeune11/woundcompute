@@ -130,8 +130,8 @@ def show_and_save_tissue_wound_pillar_contours(
         colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
         ax.imshow(img_array, cmap='gray')
 
-        if points is not None:
-            ax.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
+        # if points is not None:
+        #     ax.plot(points[1], points[0], 'k-o', linewidth=2.0, antialiased=True)
         if is_broken or broken_frame:
             if broken_frame is None:
                 broken_frame = frame_num
@@ -1051,7 +1051,7 @@ def run_segment(
     gilman_path = save_list(output_path, "gilman_linear_healing_rate_vs_frame", linear_healing_rate)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # save pngs (plots)
-    show_and_save_wound_area(np.array(area_list),wound_area_smoothed_GPR,output_path)
+    show_and_save_wound_area(np.array(area_list),wound_area_smoothed_GPR,frame_inds_to_skip,output_path)
     # check if the wound is closed
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
     is_closed_path = save_list(output_path, "is_closed_vs_frame", is_closed_list)
@@ -1124,6 +1124,7 @@ def run_segment_bi(
 def show_and_save_wound_area(
     wound_area:np.ndarray,
     wound_area_smoothed_GPR:np.ndarray,
+    frame_inds_to_skip:List,
     output_path:Path,
 ):
     """
@@ -1138,9 +1139,10 @@ def show_and_save_wound_area(
     """
     num_frames = len(wound_area)
     num_pt_GPR = len(wound_area_smoothed_GPR)
+    num_frames_skipped = len(frame_inds_to_skip)
 
-    frame_steps = np.linspace(0,num_frames-1,num_frames,dtype=int)
-    GPR_steps = np.linspace(0,num_pt_GPR-1,num_pt_GPR,dtype=int)
+    frame_steps = np.array([f for f in range(num_frames+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
+    GPR_steps = np.array([f for f in range(num_pt_GPR+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
 
     fig,ax = plt.subplots(nrows=1,ncols=1,figsize=(6,4))
 
