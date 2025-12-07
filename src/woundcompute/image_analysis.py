@@ -1139,7 +1139,11 @@ def show_and_save_wound_area(
     """
     num_frames = len(wound_area)
     num_pt_GPR = len(wound_area_smoothed_GPR)
-    num_frames_skipped = len(frame_inds_to_skip)
+    if frame_inds_to_skip is None or frame_inds_to_skip == []:
+        frame_inds_to_skip = []
+        num_frames_skipped - 0
+    else:
+        num_frames_skipped = len(frame_inds_to_skip)
 
     frame_steps = np.array([f for f in range(num_frames+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
     GPR_steps = np.array([f for f in range(num_pt_GPR+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
