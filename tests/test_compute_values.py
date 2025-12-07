@@ -168,7 +168,10 @@ def test_get_local_curvature():
 def test_sort_points_counterclockwise():
     points = np.array([[0,0],[1,1],[0,1],[1,0]])
     known = np.array([[0,0],[1,0],[1,1],[0,1]])
-    found = com.sort_points_counterclockwise(known)
+    found = com.sort_points_counterclockwise(points)
+    assert np.allclose(known,found)
+    known = np.array([[0,1],[1,1],[1,0],[0,0]])
+    found = com.sort_points_counterclockwise(points,clockwise=True)
     assert np.allclose(known,found)
 
 
@@ -645,7 +648,7 @@ def test_is_broken_example():
     threshold_function_idx = seg.select_threshold_function(input_dict, False, False, True, False)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
-    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, [], True, zoom_type=2)
+    is_broken_list = com.check_broken_tissue_all(tissue_mask_list, [], True, zoom_type=2, pillar_mask_list=[])
     assert is_broken_list[0] is False
     assert is_broken_list[1] is True
     assert is_broken_list[2] is True

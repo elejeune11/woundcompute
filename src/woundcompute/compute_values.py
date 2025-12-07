@@ -650,7 +650,7 @@ def check_broken_tissue_all(
     pillar_mask_list:List=None) -> List:
     """Given a tissue mask list. Will return a list of booleans specifying if tissue is broken."""
     
-    if pillar_mask_list and len(pillar_mask_list) == 0:
+    if pillar_mask_list == []:
         pillar_mask_list=None
     
     is_broken_list = []
@@ -766,10 +766,10 @@ def check_wound_closed(tissue_mask: np.ndarray, wound_region: object):
     # perform checks -- wound inside the center of the tissue + large enough
     tissue_object = seg.get_region_props(rot_tissue_mask)[0]
     wound_list = seg.get_region_props(rot_wound_mask)
-    if len(wound_list) == 0:
-        return True
-    else:
-        wound_object = wound_list[0]
+    # if len(wound_list) == 0:
+    #     return True
+    # else:
+    wound_object = wound_list[0]
     _, _, _, _, _, _, (min_row, min_col, max_row, max_col), _, _ = seg.extract_region_props(tissue_object)
     shrink_factor = 0.25
     bbox_outer = shrink_bounding_box(min_row, min_col, max_row, max_col, shrink_factor)
@@ -960,8 +960,8 @@ def compute_linear_healing_rate(area_list:List,perimeter_list:List,time_change_m
     """Given the area and perimeter of a wound over time, compute the linear healing rate according to Gilman's equation."""
     len_area = len(area_list)
     len_peri = len(perimeter_list)
-    if len_area!=len_peri:
-        raise ValueError("Area and perimeter lists must be the same length.")
+    # if len_area!=len_peri:
+    #     raise ValueError("Area and perimeter lists must be the same length.")
     gilmans_list = []
     for ii in range(len_area):
         if ii == 0:

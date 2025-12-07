@@ -721,6 +721,7 @@ def test_show_and_save_wound_area():
     ia.show_and_save_wound_area(
         wound_area,
         GPR_wound_area,
+        [],
         output_path
     )
     output_file = output_path / "wound_area.png"
