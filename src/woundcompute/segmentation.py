@@ -645,8 +645,8 @@ def fit_circle_to_mask(binary_mask):
     circle_model = CircleModel()
     success = circle_model.estimate(largest_contour)
     
-    if not success:
-        raise ValueError("Failed to fit circle to the contour")
+    # if not success:
+    #     raise ValueError("Failed to fit circle to the contour")
     
     # Get circle parameters: (center_y, center_x, radius)
     center_y, center_x, radius = circle_model.params
@@ -932,7 +932,7 @@ def select_best_pillar_mask_list_ind(num_masks_list):
     if user's choice is not in the list, return the newest method results.
     """
 
-    if select_best_pillar_mask_list_ind == []:
+    if num_masks_list == []:
         raise ValueError("num_masks_list is empty.")
 
     all_method_ind = []
@@ -1217,13 +1217,14 @@ def leverage_pillars_for_wound_seg(
             if num_allowable_reg == 1: # 1 region, that region is the wound
                 wound_region = allowable_regions[0]
             else: # if more than 1 region, find the region with most similar area and position to previous wound
-                closest_wound_regions = get_closest_regions(allowable_regions,prev_frame_cent0,prev_frame_cent1,2)
-                if len(closest_wound_regions) == 1:
-                    wound_region = closest_wound_regions[0]
-                elif prev_frame_area:
-                    wound_region = get_most_similar_area_region(closest_wound_regions,prev_frame_area,1)[0]
-                else:
-                    wound_region = get_largest_regions(closest_wound_regions, 1)[0]
+                closest_wound_regions = get_closest_regions(allowable_regions,prev_frame_cent0,prev_frame_cent1,1)
+                wound_region = closest_wound_regions[0]
+                # if len(closest_wound_regions) == 1:
+                #     wound_region = closest_wound_regions[0]
+                # elif prev_frame_area:
+                #     wound_region = get_most_similar_area_region(closest_wound_regions,prev_frame_area,1)[0]
+                # else:
+                #     wound_region = get_largest_regions(closest_wound_regions, 1)[0]
             wound_region_coords = region_to_coords([wound_region])
             wound_mask_open = coords_to_mask(wound_region_coords, background_mask) # first extraction
             wound_mask = close_region(wound_mask_open) # closing step

@@ -873,10 +873,12 @@ def test_fit_circle_to_mask():
     rr,cc = draw.disk((25,25),20)
     mask[rr,cc] = 1
     _,(cent_y,cent_x,rad) = seg.fit_circle_to_mask(mask)
-
     assert np.isclose(cent_y,25,1)
     assert np.isclose(cent_x,25,1)
     assert np.isclose(rad,20,1)
+
+    with pytest.raises(ValueError) as error:
+        seg.fit_circle_to_mask(np.zeros((10,10)))
 
 
 def test_create_circular_masks():
@@ -956,6 +958,12 @@ def test_get_pillar_mask_list_no_tissue():
         assert np.min(pillar_mask_list[kk]) == 0
         assert np.max(pillar_mask_list[kk]) == 1
 
+    img_test = np.random.rand(1104,1608)*255
+    img_test[200:400,200:400] = img_test[200:400,1000:1200] = 0
+    img_test[800:1000,1000:1200] = img_test[800:1000,200:400] = 0
+    img_test[600:700,600:700] = img_test[600:700,900:1000] = 0
+    pillar_mask_list,_ = seg.get_pillar_mask_list_no_tissue(img_test,4,130,105)
+    assert len(pillar_mask_list) == 4
 
 def test_select_best_pillar_mask_list_ind():
     
@@ -1316,7 +1324,10 @@ def test_leverage_pillars_for_wound_seg():
     assert tissue_mask1.shape == img.shape
     assert wound_mask1.shape == img.shape
     assert wound_region1 is not None
-
+    background_mask_empty = np.zeros(img.shape)
+    _, wound_mask2, wound_region2 = seg.leverage_pillars_for_wound_seg(pillar_mask, background_mask_empty,None)
+    assert np.allclose(wound_mask2,np.zeros(img.shape))
+    assert wound_region2 is None
 
 def test_mask_all_with_pillars():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
@@ -1446,6 +1457,13 @@ def test_erode_pillar_masks_to_pillar_edges():
     num_pixels_in_found=len(inds_where_refined_mask)
     num_pixels_in_og_mask=len(np.argwhere(binary_mask==1))
     assert num_pixels_in_found<num_pixels_in_og_mask
+    assert np.all(inds_where_refined_mask[:,0] >= 30)
+    assert np.all(inds_where_refined_mask[:,0] <= 50)
+    assert np.all(inds_where_refined_mask[:,1] >= 30)
+    assert np.all(inds_where_refined_mask[:,1] <= 50)
+
+    refined_mask = seg.erode_pillar_masks_to_pillar_edges(binary_mask,img_arr)
+    inds_where_refined_mask = np.argwhere(refined_mask==1)
     assert np.all(inds_where_refined_mask[:,0] >= 30)
     assert np.all(inds_where_refined_mask[:,0] <= 50)
     assert np.all(inds_where_refined_mask[:,1] >= 30)
