@@ -22,20 +22,20 @@
 
 ## Project Summary <a name="summary"></a>
 
-The Wound Compute software is a multi-purpose tool, designed to obtain and analyze information from our microtissue wound experiments (see: [references](#references)). Briefly, our experimental collaborators in the Jeroen Eyckman's lab seed and grow 3T3 cells into stromal microtissues, then the microtissues were injured using either a microdissection knife or a nanosecond-pulsed laser. The goal of our software is to automatically extract quantitative information from a high volume of these experimental images and movies. For example, given a stack of images for an injured microtissue in the process of healing, we can identify the wound region and measure critical properties such as wound area, major axis length, and minor axis length with respect to time. We can also track the motion and obtain the deflections of the microposts. Finally, we have also implemented some analysis to determine if the tissue is broken (i.e., detached from posts), or if the wound is closed. In this repository, we provide some details about Wound Compute, and the tutorials to run our software via a Command-Line Interface. If you're interested in in our Graphical User Interface, please check out this [repository](https://github.com/quan4444/woundcomputeGUI).
+The Wound Compute software is a multi-purpose tool, designed to obtain and analyze information from our microtissue wound experiments (see: [references](#references)). Briefly, our experimental collaborators in the Jeroen Eyckman's lab seed and grow 3T3 cells into stromal microtissues, then the microtissues were injured using either a microdissection knife or a nanosecond-pulsed laser. The goal of our software is to automatically extract quantitative information from a high volume of these experimental images and movies. For example, given a stack of images for an injured microtissue in the process of healing, we can identify the tissue and wound region, and measure critical properties such as wound area, major axis length, and minor axis length with respect to time. We can also track the motion and obtain the deflections of the microposts. Finally, we have also implemented analysis to determine if the tissue is broken (i.e., detached from posts), or if the wound is closed. In this repository, we provide details about Wound Compute, and the tutorials to run our software via a Command-Line Interface. If you're interested in our Graphical User Interface, please check out this [repository](https://github.com/quan4444/woundcomputeGUI).
 
 <p align = "center">
 <img alt="schematic of experimental system" src="tutorials/figs/knife-laser-microtissue-injuries.png" width="58.5%" />
-<img alt="wound compute result" src="tutorials/figs/via1_s18_vis.gif" width="31.6%" />
+<img alt="wound compute result" src="tutorials/figs/via2_s7.gif" width="31.6%" />
 </p>
 
 ## Project Roadmap <a name="roadmap"></a>
 
-Due to the large amount of data available from our experimental setup, it would take a lot of time for human annotators to manually label all the critical information from images. Here, we develop a comprehensive software for data curation and analysis of stromal microtissue wound healing. We have tested our software on 192 samples undergoing laser ablation injuries, which allows us to more thoroughly test for edge cases and make our software more robust. The roadmap for our project is as follow:
+Due to the large volume of data gathered from our high-throughput experimental setup, the process of manual labeling – segmentation, tracking, and analysis – is laborious. Hence, we develop a comprehensive software for data curation and analysis of stromal microtissue wound healing. We have tested our software on 192 samples undergoing laser ablation injuries, which allows us to thoroughly test for edge cases and make our software robust against varying experimental conditions. The roadmap for our project is as follow:
 
 `Preliminary Dataset + Software` $\mapsto$ `Larger Dataset + Software Testing and Validation` $\mapsto$ `Published Software Package` $\mapsto$ `Published Validation Examples and Tutorial` $\mapsto$ `Automated Analysis of High-Throughput Experiments`
 
-At present (November 2024), we have validated our software on our experimental dataset (link). In the next stage, we are interested in expanding our software to track the motion of the microtissue and the tissue assembly process. 
+At present (December 2025), we have validated our software on our experimental dataset [LINK]. In the next stage, we are interested in expanding our software to track the motion of the microtissue and the tissue assembly process.
 
 ## Installation Instructions <a name="install"></a>
 
@@ -95,7 +95,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 This GitHub repository contains a folder called ``tutorials`` that contains an example dataset and python script for running the code.
 
 ### Preparing data for analysis <a name="data_prep"></a>
-To follow along with our tutorials, the example folders (i.e., `s1`, `s2`, `s3`) can be found in the following path:
+To follow along with our tutorials, the example folders (i.e., `s18_B08`, `s21_B05`, `s22_B04`) can be found in the following path:
 ```bash
 |___ tutorials
 |       |___ files
@@ -115,9 +115,9 @@ For each example, the input dataset for analysis will have this folder structure
 |        |___ ph1_images
 |                |___"*.TIF"
 ```
-The data will be contained in the ``brightfield_image``, ``fluorescent_images``, and ``ph1_images`` folders. Critically:
-1. The files must have a ``.TIF`` extension.
-2. The files can have any name, but in order for the code to work properly they must be *in order*. For reference, we use ``sort`` to order file names:
+The data will be contained in the ``brightfield_image``, ``fluorescent_images``, and/or ``ph1_images`` folders. Critically:
+1. The files must have one of the following extensions: ``.TIF``, ``.TIFF``, ``.tif``, ``.tiff``.
+2. The files can have any name, but in order for the code to work properly, they must be in order. For reference, we use ``sort`` to order file names. Please follow the naming convention of ``good_example`` and ``another_good_example`` below:
 ```bash
 (wound-compute-env) eml-macbook-pro:tutorials emma$ python
 Python 3.9.13 | packaged by conda-forge | (main, May 27 2022, 17:01:00) 
@@ -168,6 +168,12 @@ ph1_seg_with_fl_seg_visualize: false # do not modify
 ph1_track_with_fl_seg_visualize: false # do not modify
 zoom_type: 2 # set to 1 for examples where you cannot see the pillars, set to 2 for examples where the pillars are visible
 track_pillars_ph1: true # this should be False for zoom type 1, set to True if you want pillar tracking for zoom type 2
+segment_dic: false
+seg_dic_version: 1
+seg_dic_visualize: false
+track_dic_visualize: false
+track_pillars_dic: false
+frame_inds_to_skip: [] # to skip analyzing blurry frames
 ```
 Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``. The ``.yaml`` file example shown above corresponds to the tutorial examples ``s18_B08``.
 
@@ -187,26 +193,25 @@ And it will automatically run examples ``s18_B08``, ``s21_B05``, and ``s22_B04``
 
 ### Understanding the output files
 
-For the tutorial example, outputs are grouped according to the options in the ``.yaml`` file. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character) and corresponds to frame number.
+For the tutorial example, outputs are grouped according to the options in the ``.yaml`` file. Note that ``*`` refers to the [wildcard character](https://en.wikipedia.org/wiki/Wildcard_character) and corresponds to frame number. For the files ``pillar_*.npy``, the wildcard character represents the pillar index.
 
 **_Outputs from ph1 segmentation_** (``seg_ph1_visualize: true``):
 * ``files/sample_dataset/s*/segment_ph1/contour_coords_*.npy``
 * ``files/sample_dataset/s*/segment_ph1/is_broken_vs_frame.txt.txt``
 * ``files/sample_dataset/s*/segment_ph1/is_closed_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/pillar_*.txt``
 * ``files/sample_dataset/s*/segment_ph1/tissue_mask_*.npy``
 * ``files/sample_dataset/s*/segment_ph1/tissue_parameters_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_area_vs_frame.txt``
+* ``files/sample_dataset/s*/segment_ph1/wound_area_vs_frame_GPR.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_mask_*.npy``
 * ``files/sample_dataset/s*/segment_ph1/wound_major_axis_length_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_minor_axis_length_vs_frame.txt``
  
- The files ``contour_coords_*.npy`` contain the coordinates of the points outlining the wound, while the files ``wound_mask_*.npy`` contain binary images depicting the wound. The files ``tissue_mask_*.npy`` are the binary images of the microtissue. Here, we show the images for the first frame, and the corresponding tissue mask and wound mask:
+ The files ``contour_coords_*.npy`` contain the coordinates of the points outlining the wound, while the files ``wound_mask_*.npy`` contain binary images depicting the wound masks. The files ``tissue_mask_*.npy`` and ``pillar_*.npy`` are the binary images of the microtissue masks and the pillar masks, respectively. Here, we show the images for the first frame, and the corresponding tissue mask and wound mask:
 
-<p align = "center">
-<img alt="microtissue frame0" src="tutorials/figs/s22_B04_frame0.png" width="30%" />
-<img alt="tissue mask" src="tutorials/figs/s22_B04_frame0_tissue_mask.png" width="30%" />
-<img alt="wound mask" src="tutorials/figs/s22_B04_frame0_wound_mask.png" width="30%" />
-</p>
+<p align="center">
+<img alt="segmentation_results" src="tutorials/figs/github_segmentation_results.png">
 
 The files ``is_broken_vs_frame.txt`` and ``is_closed_vs_frame.txt`` report ``0`` for ``False`` and ``1`` for ``True`` with one entry per frame. For example, if the tissue never breaks and never closes, both files will just contain a 1D array of zeros.
 
@@ -220,13 +225,7 @@ The file ``tissue_parameters_vs_frame.txt`` has one row per frame, where the col
 * ``kappa_1``: tissue curvature at ``pt1``
 * ``kappa_2``: tissue curvature at ``pt2``
 
-The file ``wound_area_vs_frame.txt`` has the computed area for the wound over time. Below we displayed the graphs for some quantities of interest over time:
-
-<p align = "center">
-<img alt="wound area vs. frame" src="tutorials/figs/s22_B04_wound_area.png" width="32%" />
-<img alt="wound major axis vs. frame" src="tutorials/figs/s22_B04_wound_major.png" width="32%" />
-<img alt="wound minor axis vs. frame" src="tutorials/figs/s22_B04_wound_minor.png" width="32%" />
-</p>
+The file ``wound_area_vs_frame.txt`` has the computed area for the wound over time.
 
 **_Output from pillars tracking_** (``track_pillars_ph1: true``):
 * ``files/sample_dataset/s*/track_pillars_ph1/pillar_tracker_x.txt``
@@ -241,26 +240,78 @@ The files ``pillar_tracker_x.txt`` and ``pillar_tracker_y.txt`` contain the x an
 The file ``ph1_contour.gif`` (shown below) contains all images from ``ph1_contour_*.png`` showing the wound margin and pillars tracking over time. The ``.gif`` also includes visualizations notifying when the microtissue is broken, or when the wound is closed.
 
 <p align = "center">
-<img alt="contour visualization" src="tutorials/figs/via1_s18_vis.gif" width="85%" />
+<img alt="contour visualization" src="tutorials/figs/via1_s54.gif" width="85%" />
 </p>
 
 ## Validation <a name="validation"></a>
-To validate our Wound Compute software, we compare the manually labeled results against the Wound Compute results. The results we're interested in are the broken status of the tissue, the wound closure status, the numbers of pillars successfully tracked, and the area of the wound segmented. For the wound closure status, the mismatched values between manual labeling and Wound Compute labeling could be caused by mislabeling of the wound closure status (i.e., label a closed wound as opened), or a mislabeling of the wound closure frame (i.e., label the wound closure frame as 26 when the wound closes on frame 28). Finally, we note that even if the areas of the manual label and the Wound Compare label match, the wound segmentation might be slightly inaccurate due to the ambiguity that comes with delineating the wound margin. We recommend checking the automated wound segmentation result manually.
+
+Generally, manual segmentation results from human annotators are used as the ground-truth for validation, or as the ground-truth for training machine learning models. This makes manual segmentation the current state-of-the-art method. However, manual segmentation can have large variations between human annotators, especially as the contrast between the background and the objects decreases. And, manual segmentation is time consuming, which increases fatigue in human annotators, and reduces the quality of the segmentation along with the total number of images they can process. Due to these limitations, we are interested in assessing the quality of the manual labels before validating our Wound Compute software. The remainder of this section is as follow: (1) we compare the manual segmentation results (tissue segmentation, wound segmentation, and absolute pillar displacements) to see the variability; (2) we compare the Wound Compute results (tissue segmentation, wound segmentation) to the manual labels; (3) finally, we come up with a synthetic displacement method to validate the pillar tracking results from Wound Compute.
+
+### Variability in segmentation between human annotators
+
+Given a stack of experimental images, we ask 4 manual annotators to segment the wound, the tissue, and the pillars based on consistent instructions and heuristics. In the figure below, we observe variability between the manual annotators despite our efforts to maintain consistency. In our experiments, the initial wound has a highly irregular shape, with color deviations only slightly from the gray background. These complicated areas are especially difficult to reproduce for manual annotators. Furthermore, manual annotators experience fatigue, which reduces quality of the segmentation and the total number of images they can process.
 
 <p align = "center">
-<img alt="broken tissue matrix via1" src="tutorials/figs/via1_broken_mat.png" width="32%" />
-<img alt="closed tissue matrix via1" src="tutorials/figs/via1_closed_mat.png" width="32%" />
-<!-- <img alt="wound minor axis vs. frame" src="tutorials/figs/20190502_LVP8_area_comparison.png" width="32%" /> -->
+<img alt="wound_variability" src="tutorials/figs/variability.png" width="95%" />
 </p>
 
-<p align = "center">
-<img alt="broken tissue matrix via2" src="tutorials/figs/via2_broken_mat.png" width="32%" />
-<img alt="closed tissue matrix via2" src="tutorials/figs/via2_closed_mat.png" width="32%" />
-<!-- <img alt="wound minor axis vs. frame" src="tutorials/figs/20190502_LVP8_area_comparison.png" width="32%" /> -->
-</p>
+For tissue segmentation, we again provide the manual annotators the same stacks of images and heuristics. Due to the higher contrast between the tissue and the background, the tissue segmentation results are much more consistent between manual annotators. In the figure below, we observe that the IOU scores between the manual annotators are all above 0.95, indicating high overlap and similarity between annotators. In these simpler cases, where the margins between the objects and the background are clearer, manual segmentation becomes a reliable means to obtain the object masks. However, in high-throughput systems, manual segmentation is time-consuming, and manual annotators still experience fatigue, reducing the accuracy in the long run.
 
 <p align = "center">
-<img alt="broken tissue matrix via2" src="tutorials/figs/num_pil_tracked.png" width="80%" />
+<img alt="tissue_variability" src="tutorials/figs/tissue_manual_annotation.png" width="95%" />
+</p>
+
+To track the pillars between frames, the manual annotators are asked to mask the pillars with circles (Fig. \ref{fig:annotator_pillar_tracking}A). Although the dark circular pillars are visually distinct from the light gray background and the tissue, the task of pillar tracking is still challenging due to the small pillar displacements in our experiments (i.e., displacements ranging from 0 to 15 pixels in our 1104 by 1608 images). Hence, any inconsistency in tracking provides erroneous results. In Fig. \ref{fig:annotator_pillar_tracking}A, the positions of the red pillar masks relative to the pillars are off by a couple pixels between frame 4 and frame 5. These masking inconsistencies, occurring over multiple frames, cause the high variability between manual annotators in the computed absolute pillar displacement (Fig. \ref{fig:annotator_pillar_tracking}B). Therefore, instead of using manual pillar tracking as our ground truth to validate Wound Compute, we develop a synthetic displacement strategy to ensure the reliability of our software in Section \ref{sec:pil_val}.
+
+
+<p align = "center">
+<img alt="pillar_variability" src="tutorials/figs/annotator_v_annotator_pillar_tracking.png" width="95%" />
+</p>
+
+### Wound Compute versus manual annotators
+
+While manual segmentation encounters reproducibility issues and fatigue in annotators, automated segmentation with Wound Compute enables consistent results on a high number of images. In automated segmentation, instead of providing written or verbal instructions, we apply heuristics directly to our codes. 
+Then, we process the images via our software for analysis. Using the given heuristics, Wound Compute assesses every single pixel across all images in our high-throughput system, which provides results much more consistent than that of manual annotators. 
+Despite the variability in the shape of the manual wound segmentation (figure A below), the resulting manual wound areas are consistent. Hence, we can compare the wound areas from manual annotators to Wound Compute for validation. In the figure below (A), we observe that Wound Compute wound areas are close to that of the manual annotators, which means that the wound masks segmented by our software are plausible. While most of the data points in (A) are linearly correlated, there are some data points that show a significant difference between Wound Compute and manual annotators (i.e., points with black edges showing disparity in wound closure). At these points, Wound Compute has determined that the wound is closed, while the manual annotators think that the wound is still opened. This discrepancy occurs because the annotators segment every 5 frames, so when the wound closes and reopens, the annotators might miss the previous frames closure. We note that when the wounds close and reopen, they always close again.
+
+To validate the Wound Compute tissue segmentation results, we compare the tissue mask areas from Wound Compute to manual annotators for validation (figure B below). Here, we find that the tissue areas are generally consistent between our software and Wound Compute. However, we note that while our microtissue sometimes comes slightly off the pillars -- reducing its effective area, our manual annotators were not instructed to capture these changes. In these cases, Wound Compute is still able to delineate the background and the tissue when the tissue comes off the pillar temporarily. 
+
+<p align = "center">
+<img alt="wc_vs_annotators" src="tutorials/figs/wc_vs_annotators.png" width="95%" />
+</p>
+
+### Pillar tracking validation with synthetic displacements
+
+Due to the inconsistency in manual pillar tracking, we cannot rely on manual data to validate Wound Compute. Instead, we develop a synthetic displacement validation pipeline to ensure the reliability and reproducibility of our pillar tracking algorithm (figure below). Specifically, we apply controlled synthetic displacements to the pillars, and assess the ability of our algorithm to track and recover these synthetic displacements. Because the pillars are physically connected to the tissue, any synthetic displacement applied to the pillars must also be applied to the entire system -- including the tissue and wound -- to preserve the relative motion observed experimentally. For each frame, we generated uniform random synthetic displacements within a predefined range, ensuring the displaced tissue remained within the field of view (figure A below). The pillars were then tracked using a template matching algorithm. Notably, the tracked displacements comprise both the applied synthetic displacements and the inherent experimental displacements caused by tissue motion and background movement:
+
+$$
+\Delta x^{template \, tracked}=\Delta x^{synthetic}+\Delta x^{experimental},
+$$
+
+$$
+\Delta y^{template \, tracked}=\Delta y^{synthetic}+\Delta y^{experimental},
+$$
+
+To evaluate tracking accuracy, we compute the recovered synthetic displacements by subtracting the experimental displacements from the tracked displacements:
+
+$$
+\Delta x^{synthetic}=\Delta x^{template \, tracked}-\Delta x^{experimental},
+$$
+
+$$
+\Delta y^{synthetic}=\Delta y^{template \, tracked}-\Delta y^{experimental},
+$$
+
+If the experimental displacements are correctly tracked, the recovered synthetic displacements should match the applied synthetic displacements. As shown in figure C below, we observed a strong linear correlation between the recovered and applied synthetic displacements, confirming the accuracy of our pillar tracking algorithm. 
+
+<p align = "center">
+<img alt="pillar_validation" src="tutorials/figs/pillar_validation.png" width="95%" />
+</p>
+
+To further study the effect of how noise affects our tracking results, we apply Gaussian filters with varying noise level to our image stacks before tracking. In figure B below, as the noise level increases, the recovered synthetic displacements gradually become less similar to the actual synthetic displacements. However, even with the added noise, the tracking results are still reasonably accurate due to the contrast between the pillars and the background.
+
+<p align = "center">
+<img alt="pillar_validation_gauss_blur" src="tutorials/figs/synthetic_disp_results.png" width="95%" />
 </p>
 
 ## References to Related Work <a name="references"></a>
