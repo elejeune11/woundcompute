@@ -586,11 +586,30 @@ def read_all_tiff(folder_path: Path,frame_inds_to_skip: List=None) -> List:
     return tiff_list
 
 
-def save_all_numpy(folder_path: Path, file_name: str, array_list: List) -> None:
+def save_all_numpy(folder_path: Path, file_name: str, array_list: List, frame_inds_to_skip: List=None) -> None:
     """Given a folder path, file name, and array list. Will save the array as individual numpy arrays"""
+
+    if frame_inds_to_skip == []:
+        frame_inds_to_skip = None
+
+    if frame_inds_to_skip is None or frame_inds_to_skip == []:
+        frame_inds_to_skip = []
+        num_frames_skipped = 0
+    else:
+        num_frames_skipped = len(frame_inds_to_skip)
+
+    num_total_frames = len(array_list) + num_frames_skipped
+    frame_inds_map = []
+    for cur_frame_ind in range(num_total_frames):
+        if cur_frame_ind not in frame_inds_to_skip:
+            frame_inds_map.append(cur_frame_ind)
+
     file_name_list = []
     for kk in range(0, len(array_list)):
-        save_path = folder_path.joinpath(file_name + "_%05d.npy" % (kk)).resolve()
+        
+        cur_frame_ind = frame_inds_map[kk]
+
+        save_path = folder_path.joinpath(file_name + "_%05d.npy" % (cur_frame_ind)).resolve()
         file_name_list.append(save_path)
         if array_list[kk] is None:
             continue  # will not save an empty array
@@ -650,7 +669,12 @@ def save_all_img_with_tissue_wound_pillar_contours(
     else:
         pillar_contours_lists_list = None
 
-    num_frames_skipped = 0 if frame_inds_to_skip is None else len(frame_inds_to_skip)
+    if frame_inds_to_skip is None or frame_inds_to_skip == []:
+        frame_inds_to_skip = []
+        num_frames_skipped = 0
+    else:
+        num_frames_skipped = len(frame_inds_to_skip)
+
     num_total_frames = len(img_list) + num_frames_skipped
     frame_inds_map = []
     for cur_frame_ind in range(num_total_frames):
@@ -1050,9 +1074,9 @@ def run_segment(
     # tissue parameters
     tissue_parameters_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
     # save numpy arrays
-    wound_name_list = save_all_numpy(output_path, "wound_mask", wound_mask_list)
-    tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list)
-    wound_contour_name_list = save_all_numpy(output_path, "contour_coords", wound_contour_list)
+    wound_name_list = save_all_numpy(output_path, "wound_mask", wound_mask_list, frame_inds_to_skip)
+    tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list, frame_inds_to_skip)
+    wound_contour_name_list = save_all_numpy(output_path, "contour_coords", wound_contour_list, frame_inds_to_skip)
     # save lists
     area_path = save_list(output_path, "wound_area_vs_frame", area_list)
     smoothed_area_path = save_list(output_path,"wound_area_vs_frame_GPR",wound_area_smoothed_GPR)
@@ -1445,9 +1469,14 @@ def show_and_save_pillar_disps_and_contours(
 
     num_frames,num_pillars = pillar_disps.shape
 
-    num_frames_skipped = 0 if frame_inds_to_skip is None else len(frame_inds_to_skip)
+    if frame_inds_to_skip is None or frame_inds_to_skip == []:
+        frame_inds_to_skip = []
+        num_frames_skipped = 0
+    else:
+        num_frames_skipped = len(frame_inds_to_skip)
+
     num_total_frames = num_frames + num_frames_skipped
-    if frame_inds_to_skip is None:
+    if frame_inds_to_skip is None or frame_inds_to_skip == []:
         frame_inds_map = np.linspace(0,num_frames-1,num_frames,dtype=np.uint8)
 
     else:

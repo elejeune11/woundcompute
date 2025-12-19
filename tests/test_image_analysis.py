@@ -281,6 +281,13 @@ def test_show_and_save_bi_tissue():
                                                       pillar_masks=pillar_mask_list,is_in_bi_folder=True)
     assert save_path.is_file()
 
+    save_path = output_file("test_before_seeding","test_ph1_bi_all_00001.png")
+    ia.save_all_img_with_tissue_wound_pillar_contours(folder_path=save_path.parent,file_name="test_ph1_bi_all",img_list=[file],
+                                                      tissue_contour_list=[],wound_contour_list=[],tissue_parameters_list=[],
+                                                      is_broken_list=[False],is_closed_list=[False],avg_pos_all_x=avg_pos_all_x,avg_pos_all_y=avg_pos_all_y,
+                                                      pillar_masks=pillar_mask_list,is_in_bi_folder=True,frame_inds_to_skip=[0])
+    assert save_path.is_file()
+
     save_path = output_file("test_before_injury", "test_ph1_tissue_mask_empty.png")
     empty_img = np.zeros((100,100),dtype=np.uint8)
     ia.show_and_save_bi_tissue(img_array=empty_img,is_broken=True,save_path=save_path,frame_num=0,title="test_empty_image")
@@ -541,9 +548,13 @@ def test_save_all_numpy():
     array_list.append(None)
     file_name_list = ia.save_all_numpy(folder_path, file_name, array_list)
     for kk in range(0, 3):
-        file_name = file_name_list[kk]
-        assert file_name.is_file()
-    assert file_name_list[3].is_file() is False
+        file_name_test = file_name_list[kk]
+        assert file_name_test.is_file()
+
+    file_name_list = ia.save_all_numpy(folder_path, file_name, array_list,[0])
+    for kk in range(0, 3):
+        file_name_test = file_name_list[kk]
+        assert file_name_test.is_file()
 
 
 def test_save_list():
@@ -1112,6 +1123,12 @@ def test_show_and_save_pillar_disps_and_contours():
     pillar_disps,avg_pillar_disps,_,_=pp.compute_absolute_actual_pillar_disps(pillars_pos_x,pillars_pos_y)
     ia.show_and_save_pillar_disps_and_contours(
         img_list[0],pillar_mask_list,pillar_disps,avg_pillar_disps,output_path,[0]
+    )
+    output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
+    assert output_file.exists()
+
+    ia.show_and_save_pillar_disps_and_contours(
+        img_list[0],pillar_mask_list,pillar_disps,avg_pillar_disps,output_path
     )
     output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
     assert output_file.exists()
