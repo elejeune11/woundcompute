@@ -1597,7 +1597,7 @@ def show_and_save_tracking(
     if is_broken:
         plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
     else:
-        if is_closed is not None:
+        if is_closed is not None and contour is not None:
             status_color = "k" if is_closed else "r"
             plt.plot(contour[:, 1], contour[:, 0], status_color, linewidth=2.0, antialiased=True)
         # plot tracked points
