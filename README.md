@@ -26,7 +26,7 @@ The Wound Compute software is a multi-purpose tool, designed to obtain and analy
 
 <p align = "center">
 <img alt="schematic of experimental system" src="tutorials/figs/knife-laser-microtissue-injuries.png" width="58.5%" />
-<img alt="wound compute result" src="tutorials/figs/via2_s7.gif" width="31.6%" />
+<img alt="wound compute result" src="tutorials/figs/via1_s23.gif" width="31.6%" />
 </p>
 
 ## Project Roadmap <a name="roadmap"></a>
