@@ -1,25 +1,26 @@
 import glob
-import imageio.v2 as imageio
-import matplotlib.pyplot as plt
-import matplotlib
-# matplotlib.use('Agg') # # Use Agg backend for non-GUI environments
-import numpy as np
 import os
-from pathlib import Path
-from skimage import io
-from scipy.ndimage import shift
-import time
-from typing import List,Tuple
-import yaml
-from PIL import Image
-from skimage.transform import rescale
 import re
 import shutil
-from woundcompute import segmentation as seg
+import sys
+import time
+import warnings
+import yaml
+import imageio.v2 as imageio
+import matplotlib.pyplot as plt
+import numpy as np
+from pathlib import Path
+from PIL import Image
+from scipy.ndimage import shift
+from skimage import io
+from skimage.transform import rescale
+from sklearn.exceptions import ConvergenceWarning
+from typing import List,Tuple
 from woundcompute import compute_values as com
-from woundcompute import texture_tracking as tt
+from woundcompute import file_management as fm
 from woundcompute import post_process as pp
-from woundcompute import warnings_handler as warn
+from woundcompute import segmentation as seg
+from woundcompute import texture_tracking as tt
 
 
 def hello_wound_compute() -> str:
@@ -144,9 +145,9 @@ def show_and_save_tissue_wound_pillar_contours(
             ax.plot(tissue_contour[:,1], tissue_contour[:,0], color='#EDED1A', linewidth=2.0, antialiased=True)
         if wound_contour is not None:
             ax.plot(wound_contour[:, 1], wound_contour[:, 0], color='#EDED1A', linewidth=2.0, antialiased=True)
-        if pillars_pos_x is not None and pillars_pos_y is not None:
-            dot_size = 0.00003 * img_w * img_h * scale_factor
-            ax.scatter(pillars_pos_x,pillars_pos_y,s=dot_size,c='#EDED1A')
+        # if pillars_pos_x is not None and pillars_pos_y is not None:
+        #     dot_size = 0.00003 * img_w * img_h * scale_factor
+        #     ax.scatter(pillars_pos_x,pillars_pos_y,s=dot_size,c='#EDED1A')
         if scaled_pillar_contours_lists_list is not None:
             for pil_ind,pil_cont_list in enumerate(scaled_pillar_contours_lists_list):
                 for pil_cont_part in pil_cont_list:
@@ -157,7 +158,7 @@ def show_and_save_tissue_wound_pillar_contours(
 
                     pil_cont_part[:,0] = pil_cont_part[:,0] + pillars_pos_x[pil_ind]
                     pil_cont_part[:,1] = pil_cont_part[:,1] + pillars_pos_y[pil_ind]
-                    ax.plot(pil_cont_part[:,0],pil_cont_part[:,1],'#EDED1A',linewidth=2.0, antialiased=True)
+                    ax.plot(pil_cont_part[:,0],pil_cont_part[:,1],'cyan',linewidth=2.0, antialiased=True)
 
         plt.title(title)
         plt.axis('off')
@@ -169,6 +170,7 @@ def show_and_save_tissue_wound_pillar_contours(
 
 def show_and_save_bi_tissue(
     img_array: np.ndarray,
+    tissue_contour: np.ndarray,
     is_broken: bool,
     save_path: Path,
     frame_num: int = None,
@@ -188,6 +190,7 @@ def show_and_save_bi_tissue(
     if img_h > 512 or img_h > 512:
         scale_factor = 1 / ( (img_w/512 + img_h/512) / 2 )
         img_array = rescale(img_array,scale_factor,anti_aliasing=True)
+        tissue_contour=tissue_contour*scale_factor if tissue_contour is not None else None
         pillars_pos_x=pillars_pos_x*scale_factor if pillars_pos_x is not None else None
         pillars_pos_y=pillars_pos_y*scale_factor if pillars_pos_y is not None else None
         if pillar_contours_lists_list is not None:
@@ -212,6 +215,8 @@ def show_and_save_bi_tissue(
         if broken_frame is None:
             broken_frame = frame_num
         plt.text(xt_broken, yt_broken, f"broken at frame {broken_frame}", color="r", backgroundcolor="w", fontsize=17)
+    if tissue_contour is not None:
+        plt.plot(tissue_contour[:,1], tissue_contour[:,0], color='#EDED1A', linewidth=2.0, antialiased=True)
     # if pillars_pos_x is not None and pillars_pos_y is not None:
     #     dot_size = 0.00003 * img_w * img_h * scale_factor
     #     plt.scatter(pillars_pos_x,pillars_pos_y,s=dot_size,c='blue')
@@ -225,7 +230,7 @@ def show_and_save_bi_tissue(
 
                 pil_cont_part[:,0] = pil_cont_part[:,0] + pillars_pos_x[pil_ind]
                 pil_cont_part[:,1] = pil_cont_part[:,1] + pillars_pos_y[pil_ind]
-                plt.plot(pil_cont_part[:,0],pil_cont_part[:,1],'#EDED1A',linewidth=2.0, antialiased=True)
+                plt.plot(pil_cont_part[:,0],pil_cont_part[:,1],'cyan',linewidth=2.0, antialiased=True)
 
     plt.title(title)
     plt.axis('off')
@@ -282,7 +287,7 @@ def show_and_save_bs_tissue(
 
                     pil_cont_part[:,0] = pil_cont_part[:,0] + pillars_pos_x[pil_ind]
                     pil_cont_part[:,1] = pil_cont_part[:,1] + pillars_pos_y[pil_ind]
-                    ax.plot(pil_cont_part[:,0],pil_cont_part[:,1],'#EDED1A',linewidth=2.0, antialiased=True)
+                    ax.plot(pil_cont_part[:,0],pil_cont_part[:,1],'cyan',linewidth=2.0, antialiased=True)
 
         plt.title(title)
         plt.axis('off')
@@ -392,7 +397,8 @@ def _yml_to_dict(*, yml_path_file: Path) -> dict:
             "seg_dic_visualize",
             "track_pillars_dic",
             "track_dic_visualize",
-            "frame_inds_to_skip",
+            "low_quality_frame_inds",
+            "run_before_injury_and_after_injury_together",
         )
 
         # has_required_keys = all(tuple(map(lambda x: db.get(x) != None, required_keys)))
@@ -574,40 +580,26 @@ def input_info_to_dicts(folder_path: Path) -> dict:
     return input_dict, input_path_dict, output_path_dict
 
 
-def read_all_tiff(folder_path: Path,frame_inds_to_skip: List=None) -> List:
+def read_all_tiff(folder_path: Path, tiff_paths_list: List=None) -> List:
     """Given a folder path. Will return a list of all tiffs as an array."""
-    path_list = image_folder_to_path_list(folder_path)
+    if tiff_paths_list is None:
+        path_list = image_folder_to_path_list(folder_path)
+    else:
+        path_list = tiff_paths_list
     tiff_list = []
     for path in path_list:
         array = read_tiff(path)
         tiff_list.append(array)
-    if frame_inds_to_skip is not None and frame_inds_to_skip != []:
-        tiff_list = [img for ind, img in enumerate(tiff_list) if ind not in frame_inds_to_skip]
     return tiff_list
 
 
-def save_all_numpy(folder_path: Path, file_name: str, array_list: List, frame_inds_to_skip: List=None) -> None:
+def save_all_numpy(folder_path: Path, file_name: str, array_list: List) -> None:
     """Given a folder path, file name, and array list. Will save the array as individual numpy arrays"""
-
-    if frame_inds_to_skip == []:
-        frame_inds_to_skip = None
-
-    if frame_inds_to_skip is None or frame_inds_to_skip == []:
-        frame_inds_to_skip = []
-        num_frames_skipped = 0
-    else:
-        num_frames_skipped = len(frame_inds_to_skip)
-
-    num_total_frames = len(array_list) + num_frames_skipped
-    frame_inds_map = []
-    for cur_frame_ind in range(num_total_frames):
-        if cur_frame_ind not in frame_inds_to_skip:
-            frame_inds_map.append(cur_frame_ind)
 
     file_name_list = []
     for kk in range(0, len(array_list)):
         
-        cur_frame_ind = frame_inds_map[kk]
+        cur_frame_ind = kk
 
         save_path = folder_path.joinpath(file_name + "_%05d.npy" % (cur_frame_ind)).resolve()
         file_name_list.append(save_path)
@@ -654,7 +646,6 @@ def save_all_img_with_tissue_wound_pillar_contours(
     pillar_masks: List = None,
     is_in_bi_folder: bool = False,
     is_in_bs_folder: bool = False,
-    frame_inds_to_skip: List = [],
 ) -> List:
     "Given segmentation results. Plot and save image and contour."
     file_name_list = []
@@ -669,21 +660,10 @@ def save_all_img_with_tissue_wound_pillar_contours(
     else:
         pillar_contours_lists_list = None
 
-    if frame_inds_to_skip is None or frame_inds_to_skip == []:
-        frame_inds_to_skip = []
-        num_frames_skipped = 0
-    else:
-        num_frames_skipped = len(frame_inds_to_skip)
-
-    num_total_frames = len(img_list) + num_frames_skipped
-    frame_inds_map = []
-    for cur_frame_ind in range(num_total_frames):
-        if cur_frame_ind not in frame_inds_to_skip:
-            frame_inds_map.append(cur_frame_ind)
 
     for kk in range(0, len(img_list)):
 
-        displayed_frame_ind = frame_inds_map[kk]
+        displayed_frame_ind = kk
         img = img_list[kk]
 
         if avg_pos_all_x is None:
@@ -701,8 +681,12 @@ def save_all_img_with_tissue_wound_pillar_contours(
                 pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours_lists_list=pillar_contours_lists_list
                 )
         elif is_in_bi_folder:
+            if tissue_contour_list == []:
+                tissue_cont=None
+            else:
+                tissue_cont = tissue_contour_list[kk]
             show_and_save_bi_tissue(
-                img_array=img,is_broken=is_broken_list[kk],save_path=save_path,frame_num=frame_inds_map[kk],
+                img_array=img,tissue_contour=tissue_cont,is_broken=is_broken_list[kk],save_path=save_path,frame_num=displayed_frame_ind,
                 title=f"before injury frame {displayed_frame_ind}",pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours_lists_list=pillar_contours_lists_list
                 )
         else:
@@ -730,7 +714,7 @@ def save_all_img_with_tissue_wound_pillar_contours(
                 points = [[tp[1], tp[3]], [tp[2], tp[4]]]
             title = "frame %05d" % (displayed_frame_ind)
             broken_frame,closed_frame=show_and_save_tissue_wound_pillar_contours(img, tissue_cont, wound_cont, is_broken, is_closed, points, save_path, title=title,
-                                            frame_num = frame_inds_map[kk],broken_frame=broken_frame,closed_frame=closed_frame,
+                                            frame_num = displayed_frame_ind,broken_frame=broken_frame,closed_frame=closed_frame,
                                             pillars_pos_x=pillars_pos_x,pillars_pos_y=pillars_pos_y,pillar_contours_lists_list=pillar_contours_lists_list)
         
         file_name_list.append(save_path)
@@ -999,31 +983,26 @@ def subtract_moving_pillars_from_tissue_masks(
 
 
 def run_segment(
-    input_path: Path,
+    img_list: List,
     output_path: Path,
     threshold_function_idx: int,
     zoom_fcn_idx: int,
-    pillar_pos_x: np.ndarray = None,
-    pillar_pos_y: np.ndarray = None,
     is_bi: bool=False,
     is_bs: bool=False,
-    frame_inds_to_skip: List=None,
+    low_quality_frame_inds: List=None,
 ) -> List:
     """Given input and output information. Will run the complete segmentation process."""
 
     if is_bi:
-        wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list = run_segment_bi(
-            input_path, output_path, threshold_function_idx, zoom_fcn_idx, pillar_pos_x, pillar_pos_y, frame_inds_to_skip
+        wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list = run_segment_bi(
+            img_list, output_path, threshold_function_idx, zoom_fcn_idx, low_quality_frame_inds
             )
-        return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
+        return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
 
     # read the inputs
     if is_bs:
         # if the images are taken before seeding, there should be no tissue or wound to segment.
-        img_list = read_all_tiff(input_path,[])
-        return [], [], [], None, None, None, None, None, None, img_list, [], [], [], [], []
-    else:
-        img_list = read_all_tiff(input_path,frame_inds_to_skip)
+        return [], [], [], None, None, None, None, None, None, [], [], [], [], []
     
     # apply threshold
     if threshold_function_idx == 6:
@@ -1032,51 +1011,55 @@ def run_segment(
     else:
         thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     # masking
+    frame_ind_for_pillar_template = determine_good_frame_ind_for_pillar_template(low_quality_frame_inds,len(img_list))
+    img_for_pillar_template = img_list[frame_ind_for_pillar_template]
     if threshold_function_idx == 6:
-        pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
+        # get pillar masks and tracking positions
+        pillar_mask_list,res_func = seg.get_pillar_mask_list(img_for_pillar_template)
+        pillar_pos_x,pillar_pos_y = tt.perform_pillar_tracking(pillar_mask_list,img_list,frame_ind_for_pillar_template,res_func=res_func)
         tissue_mask_list,wound_mask_list,wound_region_list = seg.mask_all_dic(thresholded_list_wound,thresholded_list_tissue,pillar_mask_list)
+        tissue_footprint_mask_list = seg.get_tissue_footprints_all(tissue_mask_list,wound_mask_list,pillar_mask_list,pillar_pos_x,pillar_pos_y)
     elif zoom_fcn_idx == 2:
-        # get pillar masks
-        # future idea: do this based on multiple images e.g., avg all images?
-        pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], num_pillars_expected=4,mask_seg_type=2)
+        # get pillar masks and tracking positions
+        pillar_mask_list,res_func = seg.get_pillar_mask_list(img_for_pillar_template)
+        pillar_pos_x,pillar_pos_y = tt.perform_pillar_tracking(pillar_mask_list,img_list,frame_ind_for_pillar_template,res_func=res_func)
         # do zoom function type 2
         tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
+        tissue_footprint_mask_list = seg.get_tissue_footprints_all(tissue_mask_list,wound_mask_list,pillar_mask_list,pillar_pos_x,pillar_pos_y)
     else:
         tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, threshold_function_idx)
         pillar_mask_list=None
+        tissue_footprint_mask_list = tissue_mask_list
     # wound contour
     wound_contour_list = seg.contour_all(wound_mask_list)
     wound_mask_list = seg.contour_to_mask_all(img_list[0],wound_contour_list)
     # wound parameters
     area_list, axis_major_length_list, axis_minor_length_list, perimeter_list = com.wound_parameters_all(img_list[0], wound_contour_list)
+    if "_compiled" in str(output_path) and len(img_list)==len(area_list): # first frame a compiled folder is before injury
+        area_list[0] = 0
     linear_healing_rate = com.compute_linear_healing_rate(area_list,perimeter_list,30)
-    wound_area_smoothed_GPR = pp.smooth_with_GPR(np.array(area_list))
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=ConvergenceWarning)
+        wound_area_smoothed_GPR = pp.smooth_with_GPR(np.array(area_list))
 
     if pillar_mask_list:
         # check if the tissue is broken
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx,pillar_mask_list=pillar_mask_list)
         _ = save_all_numpy(output_path, "pillar", pillar_mask_list)
-
-        # refine tissue masks by subtracting moving pillars
-        if pillar_pos_x is not None and pillar_pos_y is not None:
-            tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
-                tissue_mask_list, pillar_mask_list, 
-                pillar_pos_x, 
-                pillar_pos_y
-            )
     else:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
     
     # tissue contour
-    tissue_contour_list = seg.contour_all(tissue_mask_list)
+    tissue_contour_list = seg.contour_all(tissue_footprint_mask_list)
     # tissue parameters
-    tissue_parameters_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
+    tissue_parameters_list = com.tissue_parameters_all(tissue_footprint_mask_list, wound_mask_list, zoom_fcn_idx)
     # save numpy arrays
-    wound_name_list = save_all_numpy(output_path, "wound_mask", wound_mask_list, frame_inds_to_skip)
-    tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list, frame_inds_to_skip)
-    wound_contour_name_list = save_all_numpy(output_path, "contour_coords", wound_contour_list, frame_inds_to_skip)
+    wound_name_list = save_all_numpy(output_path, "wound_mask", wound_mask_list)
+    # tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list, low_quality_frame_inds)
+    tissue_name_list = save_all_numpy(output_path, "tissue_footprint_mask", tissue_footprint_mask_list)
+    wound_contour_name_list = save_all_numpy(output_path, "contour_coords", wound_contour_list)
     # save lists
     area_path = save_list(output_path, "wound_area_vs_frame", area_list)
     smoothed_area_path = save_list(output_path,"wound_area_vs_frame_GPR",wound_area_smoothed_GPR)
@@ -1088,38 +1071,38 @@ def run_segment(
     gilman_path = save_list(output_path, "gilman_linear_healing_rate_vs_frame", linear_healing_rate)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # save pngs (plots)
-    show_and_save_wound_area(np.array(area_list),wound_area_smoothed_GPR,frame_inds_to_skip,output_path)
+    show_and_save_wound_area(np.array(area_list),wound_area_smoothed_GPR,output_path)
     # check if the wound is closed
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
     is_closed_path = save_list(output_path, "is_closed_vs_frame", is_closed_list)
-    return wound_name_list, tissue_name_list, wound_contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
+    return wound_name_list, tissue_name_list, wound_contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
 
 
 def run_segment_bi(
-    input_path: Path,
+    img_list: Path,
     output_path: Path,
     threshold_function_idx: int,
     zoom_fcn_idx: int,
-    pillar_pos_x: np.ndarray=None,
-    pillar_pos_y: np.ndarray=None,
-    frame_inds_to_skip: List=None,
+    low_quality_frame_inds: List=None,
 ) -> List:
     """Function to run segmentation for before injury (bi) microtissues."""
-    # read the inputs
-    # no need to frame skip for tissue bi
-    img_list = read_all_tiff(input_path,[])
+
     # apply threshold
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     # masking
     if zoom_fcn_idx == 2:
         # get pillar masks
-        # future idea: do this based on multiple images e.g., avg all images?
-        pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0], num_pillars_expected=4, mask_seg_type=2)
+        frame_ind_for_pillar_template = determine_good_frame_ind_for_pillar_template(low_quality_frame_inds,len(img_list))
+        img_for_pillar_template = img_list[frame_ind_for_pillar_template]
+        pillar_mask_list,res_func = seg.get_pillar_mask_list(img_for_pillar_template)
+        pillar_pos_x,pillar_pos_y = tt.perform_pillar_tracking(pillar_mask_list,img_list,frame_ind_for_pillar_template,res_func=res_func)
         # do zoom function type 2
         tissue_mask_list, _, _ = seg.mask_all_with_pillars(thresholded_list, pillar_mask_list)
+        tissue_footprint_mask_list = seg.get_tissue_footprints_all(tissue_mask_list,None,pillar_mask_list,pillar_pos_x,pillar_pos_y)
     else:
         tissue_mask_list, _, _ = seg.mask_all(thresholded_list, threshold_function_idx)
         pillar_mask_list=None
+        tissue_footprint_mask_list = tissue_mask_list
     # there are no wound masks for before injury
     wound_mask_list = []
     is_closed_list = []
@@ -1132,36 +1115,28 @@ def run_segment_bi(
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx,pillar_mask_list=pillar_mask_list)
         _ = save_all_numpy(output_path, "pillar", pillar_mask_list)
-
-        # refine tissue masks by subtracting moving pillars
-        if pillar_pos_x is not None and pillar_pos_y is not None:
-            tissue_mask_list = subtract_moving_pillars_from_tissue_masks(
-                tissue_mask_list, pillar_mask_list, 
-                pillar_pos_x, 
-                pillar_pos_y
-            )
     else:
         is_broken_list = com.check_broken_tissue_all(
             tissue_mask_list, wound_mask_list, True, zoom_fcn_idx)
 
     # tissue parameters
-    tissue_parameters_list = com.tissue_parameters_all(tissue_mask_list, wound_mask_list, zoom_fcn_idx)
+    tissue_parameters_list = com.tissue_parameters_all(tissue_footprint_mask_list, wound_mask_list, zoom_fcn_idx)
     # tissue contour
-    tissue_contour_list = seg.contour_all(tissue_mask_list)
+    tissue_contour_list = seg.contour_all(tissue_footprint_mask_list)
     # save numpy arrays
-    tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list)
+    # tissue_name_list = save_all_numpy(output_path, "tissue_mask", tissue_mask_list)
+    tissue_name_list = save_all_numpy(output_path, "tissue_footprint_mask", tissue_footprint_mask_list)
     # save lists
     tissue_path = save_list(output_path, "tissue_parameters_vs_frame", tissue_parameters_list)
     is_broken_path = save_list(output_path, "is_broken_vs_frame", is_broken_list)
     # since the tissue is not injured, we will not have any wound data
     wound_name_list=contour_name_list=area_path=ax_maj_path=ax_min_path=is_closed_path=wound_contour_list=None
-    return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
+    return wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list
 
 
 def show_and_save_wound_area(
     wound_area:np.ndarray,
     wound_area_smoothed_GPR:np.ndarray,
-    frame_inds_to_skip:List,
     output_path:Path,
 ):
     """
@@ -1176,19 +1151,18 @@ def show_and_save_wound_area(
     """
     num_frames = len(wound_area)
     num_pt_GPR = len(wound_area_smoothed_GPR)
-    if frame_inds_to_skip is None or frame_inds_to_skip == []:
-        frame_inds_to_skip = []
-        num_frames_skipped = 0
-    else:
-        num_frames_skipped = len(frame_inds_to_skip)
 
-    frame_steps = np.array([f for f in range(num_frames+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
-    GPR_steps = np.array([f for f in range(num_pt_GPR+num_frames_skipped) if f not in frame_inds_to_skip],dtype=int)
+    if "_compiled" in str(output_path):
+        frame_inds_mapping = np.linspace(-1,num_frames-2,num_frames,dtype=int)
+        frame_inds_GPR = np.linspace(-1,num_pt_GPR-2,num_pt_GPR,dtype=int)
+    else:
+        frame_inds_mapping = np.linspace(0,num_frames-1,num_frames,dtype=int)
+        frame_inds_GPR = np.linspace(0,num_pt_GPR-1,num_pt_GPR,dtype=int)
 
     fig,ax = plt.subplots(nrows=1,ncols=1,figsize=(6,4))
 
-    ax.scatter(frame_steps,wound_area,c='black',s=8,label='wound area')
-    ax.plot(GPR_steps,wound_area_smoothed_GPR,c='red',linewidth=1,label='GPR smoothed')
+    ax.scatter(frame_inds_mapping,wound_area,c='black',s=8,label='wound area')
+    ax.plot(frame_inds_GPR,wound_area_smoothed_GPR,c='red',linewidth=1,label='GPR smoothed')
     ax.set_title('Wound area over time')
     ax.set_xlabel('frame number')
     ax.set_ylabel('wound area (pixels)')
@@ -1257,11 +1231,10 @@ def run_seg_visualize(
     pillar_masks: List = None,
     is_in_bi_folder: bool = False,
     is_in_bs_folder: bool = False,
-    frame_inds_to_skip: List = None,
 ) -> tuple:
     """Given input and output information. Run segmentation visualization."""
     # path_list = save_all_img_with_contour(output_path, fname, img_list, contour_list, is_broken_list, is_closed_list)
-    path_list = save_all_img_with_tissue_wound_pillar_contours(output_path, fname, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list,avg_pos_all_x,avg_pos_all_y,pillar_masks,is_in_bi_folder,is_in_bs_folder,frame_inds_to_skip)
+    path_list = save_all_img_with_tissue_wound_pillar_contours(output_path, fname, img_list, tissue_contour_list, wound_contour_list, tissue_parameters_list, is_broken_list, is_closed_list,avg_pos_all_x,avg_pos_all_y,pillar_masks,is_in_bi_folder,is_in_bs_folder)
     gif_path = create_gif(output_path, fname, path_list)
     return (path_list, gif_path)
 
@@ -1279,10 +1252,9 @@ def run_bf_seg_vs_fl_seg_visualize(
     return (path_list, gif_path)
 
 
-def run_texture_tracking(input_path: Path, output_path: Path, threshold_function_idx: int, frame_inds_to_skip: List=None):
+def run_texture_tracking(img_list: List, output_path: Path, threshold_function_idx: int, low_quality_frame_inds: List=None):
     """Given input and output information. Will run texture tracking."""
     # read all tiff images from input path
-    img_list = read_all_tiff(input_path,frame_inds_to_skip)
     if len(img_list) < 2:
         empty_array = np.array([])
         return empty_array, empty_array, empty_array, empty_array, [], [], '', '', '', '', '', ''
@@ -1464,27 +1436,13 @@ def show_and_save_pillar_disps_and_contours(
     pillar_disps: np.ndarray,
     avg_pillar_disps: np.ndarray,
     output_path: Path,
-    frame_inds_to_skip: List=None,
 ):
 
     num_frames,num_pillars = pillar_disps.shape
-
-    if frame_inds_to_skip is None or frame_inds_to_skip == []:
-        frame_inds_to_skip = []
-        num_frames_skipped = 0
+    if "_compiled" in str(output_path):
+        frame_inds_mapping = np.linspace(-1,num_frames-2,num_frames,dtype=int)
     else:
-        num_frames_skipped = len(frame_inds_to_skip)
-
-    num_total_frames = num_frames + num_frames_skipped
-    if frame_inds_to_skip is None or frame_inds_to_skip == []:
-        frame_inds_map = np.linspace(0,num_frames-1,num_frames,dtype=np.uint8)
-
-    else:
-        frame_inds_map = []
-        for cur_frame_ind in range(num_total_frames):
-            if cur_frame_ind not in frame_inds_to_skip:
-                frame_inds_map.append(cur_frame_ind)
-        frame_inds_map = np.array(frame_inds_map)
+        frame_inds_mapping = np.linspace(0,num_frames-1,num_frames,dtype=int)
 
     with plt.style.context(("tableau-colorblind10",)):
         fig, ax = plt.subplots(ncols=2, figsize=(15,6))
@@ -1505,7 +1463,7 @@ def show_and_save_pillar_disps_and_contours(
                 color = colors[color_index % len(colors)]
 
             # Use the same color for scatter plot
-            ax[0].scatter(frame_inds_map, pillar_disps[:, pil_ind], 
+            ax[0].scatter(frame_inds_mapping, pillar_disps[:, pil_ind], 
                         label=f'p{pil_ind}', color=color)
 
             # Use the same color for contours
@@ -1517,21 +1475,13 @@ def show_and_save_pillar_disps_and_contours(
                 else:
                     ax[1].scatter(pm_cont[:, 1], pm_cont[:, 0], s=1, color=color)
 
-        ax[0].plot(frame_inds_map, avg_pillar_disps, c='black', label='avg', linewidth=2)
+        ax[0].plot(frame_inds_mapping, avg_pillar_disps, c='black', label='avg', linewidth=2)
         ax[0].set_title('Absolute pillar displacements', fontsize=15)
         ax[0].set_xlabel('frame number', fontsize=12)
         ax[0].set_ylabel('displacement (pixels)', fontsize=12)
         ax[0].grid('on', ls=':')
         ax[0].legend()
         ax[1].legend(markerscale=8)
-
-        # Add text box with skipped frames information
-        if frame_inds_to_skip:
-            skip_text = f"Frames skipped in processing (per user request in .yaml): \n{frame_inds_to_skip}"
-            # Position the text box below the image
-            ax[1].text(0.5, -0.02, skip_text, transform=ax[1].transAxes, fontsize=12,
-                      verticalalignment='top', horizontalalignment='center',
-                      bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
 
     plt.tight_layout()
     sample_name = output_path.parent.name
@@ -1541,37 +1491,111 @@ def show_and_save_pillar_disps_and_contours(
     return
 
 
+def show_and_save_disp_of_pillar_dist_to_pillars_centroid(
+    img:np.ndarray,
+    pillar_mask_list: List[np.ndarray],
+    disps_of_pillar_dist_to_centroid: np.ndarray,
+    avg_disps_of_pillar_dist_to_centroid: np.ndarray,
+    output_path:Path,
+):
+    num_frames,num_pillars = disps_of_pillar_dist_to_centroid.shape
+    if "_compiled" in str(output_path):
+        frame_inds_mapping = np.linspace(-1,num_frames-2,num_frames,dtype=int)
+    else:
+        frame_inds_mapping = np.linspace(0,num_frames-1,num_frames,dtype=int)
+    
+    colors = ['#1170AA','#FC7D0B','#A3ACB9','#EDED1A']
+
+    fig,ax = plt.subplots(nrows=3,ncols=2,figsize=(12,14))
+    axes=ax.flatten()
+
+    axes[0].imshow(img,cmap='gray')
+    axes[0].set_title('Pillar contours', fontsize=18)
+    axes[0].axis('off')
+
+    axes[1].plot(frame_inds_mapping,avg_disps_of_pillar_dist_to_centroid,c='black',linewidth=2)
+    axes[1].set_title("Avg disp of pillar distance to pillars' centroid",fontsize=18)
+    axes[1].set_xlabel('frame number',fontsize=13)
+    axes[1].set_ylabel('distance (pixels)',fontsize=13)
+    axes[1].grid('on',ls=':')
+
+    for pil_ind in range(num_pillars):
+        color = colors[pil_ind % len(colors)]
+        pm_contour_list = seg.mask_to_all_contours(pillar_mask_list[pil_ind])
+        for contour_ind,pm_cont in enumerate(pm_contour_list):
+            if contour_ind==0:
+                axes[0].scatter(pm_cont[:, 1], pm_cont[:, 0], s=1, color=color,label=f'p{pil_ind} contour')
+            else:
+                axes[0].scatter(pm_cont[:, 1], pm_cont[:, 0], s=1, color=color)
+    
+        axes[pil_ind+2].plot(frame_inds_mapping,disps_of_pillar_dist_to_centroid[:,pil_ind],label=f'p{pil_ind}',color=color)
+        axes[pil_ind+2].set_title(f'Disp of pillar {pil_ind} dist to centroid of all pillars',fontsize=18)
+        axes[pil_ind+2].set_xlabel('frame number',fontsize=13)
+        axes[pil_ind+2].set_ylabel('distance (pixels)',fontsize=13)
+        axes[pil_ind+2].grid('on',ls=':')
+    axes[0].legend(markerscale=8)
+
+    plt.tight_layout()
+    sample_name = output_path.parent.name
+    save_path = output_path.joinpath(f"disp_pillar_distance_to_centroid_of_all_pillars_{sample_name}.png").resolve()
+    plt.savefig(save_path)
+    plt.close()
+    return
+
+
+def determine_good_frame_ind_for_pillar_template(low_quality_frame_inds:List,len_img_list:int):
+    if len_img_list == 1:
+        return 0
+    if low_quality_frame_inds is None or low_quality_frame_inds == []:
+        return 0
+
+    low_quality_frame_inds.sort()
+    last_low_qual_ind = low_quality_frame_inds[-1]
+    candidate_ind = last_low_qual_ind + 1
+    accept_ind = False
+
+    if candidate_ind <= len_img_list-1 and candidate_ind not in low_quality_frame_inds:
+        return candidate_ind
+    else:
+        candidate_ind = 0
+        while not accept_ind:
+            if candidate_ind not in low_quality_frame_inds:
+                return candidate_ind
+            elif candidate_ind > len_img_list-1:
+                raise ValueError("No suitable frame index found for extracting pillar mask. Please check if all frame indices are marked as low quality.")
+            else:
+                candidate_ind+=1
+
+
 def run_texture_tracking_pillars(
     img_list:List,
     output_path:Path,
-    mask_seg_type:int=2,
     is_bs:bool=False,
-    frame_inds_to_skip:List=None):
+    low_quality_frame_inds:List=None
+):
 
-    first_img = img_list[0]
+    frame_ind_for_pillar_template = determine_good_frame_ind_for_pillar_template(low_quality_frame_inds,len(img_list))
+    img_for_pillar_template = img_list[frame_ind_for_pillar_template]
     if is_bs:
-        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list_no_tissue(first_img,num_pillars_expected=4,outer_circle_pillar_radius=130,inner_circle_pillar_radius=105)
+        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list_no_tissue(img_for_pillar_template)
     else:
-        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list(first_img,num_pillars_expected=4,mask_seg_type=mask_seg_type)
-    avg_pos_all_x, avg_pos_all_y = tt.perform_pillar_tracking(pillar_mask_list, img_list, res_func=corresponding_res_func)
-    pillar_disps,avg_pillar_disps,_,_=pp.compute_absolute_actual_pillar_disps(avg_pos_all_x,avg_pos_all_y)
+        pillar_mask_list,corresponding_res_func = seg.get_pillar_mask_list(img_for_pillar_template)
+    avg_pos_all_x, avg_pos_all_y = tt.perform_pillar_tracking(
+        pillar_mask_list, img_list, pillar_masks_frame_ind=frame_ind_for_pillar_template,res_func=corresponding_res_func
+        )
+    disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,_,_=pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(avg_pos_all_x,avg_pos_all_y)
 
-    # sample_name = output_path.parent.name
-    # basename_exp = output_path.parent.parent.name
-
-    show_and_save_pillar_positions(first_img, pillar_mask_list, output_path)
-    show_and_save_pillar_disps_and_contours(first_img, pillar_mask_list, pillar_disps, avg_pillar_disps, output_path,frame_inds_to_skip)
+    show_and_save_pillar_positions(img_for_pillar_template, pillar_mask_list, output_path)
+    show_and_save_disp_of_pillar_dist_to_pillars_centroid(img_for_pillar_template,pillar_mask_list,disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,output_path)
 
     # save data
     path_pos_x = output_path.joinpath("pillar_tracker_x.txt").resolve()
     path_pos_y = output_path.joinpath("pillar_tracker_y.txt").resolve()
-    path_abs_pillar_disps = output_path.joinpath("pillar_disps_actual.txt").resolve()
-    path_avg_pillar_disps = output_path.joinpath("avg_pillar_disps_actual.txt").resolve()
+    path_disp_dist_to_centroid = output_path.joinpath("disp_pillar_dist_to_centroid.txt").resolve()
 
     np.savetxt(str(path_pos_x), avg_pos_all_x)
     np.savetxt(str(path_pos_y), avg_pos_all_y)
-    np.savetxt(str(path_abs_pillar_disps), pillar_disps)
-    np.savetxt(str(path_avg_pillar_disps), avg_pillar_disps)
+    np.savetxt(str(path_disp_dist_to_centroid), disp_of_dist_to_centroid)
 
     return pillar_mask_list, avg_pos_all_x, avg_pos_all_y, path_pos_x, path_pos_y
 
@@ -1629,7 +1653,10 @@ def save_all_img_tracking(
     file_name_list = []
     for kk in range(0, len(img_list)):
         img = img_list[kk]
-        contour = contour_list[kk]
+        if contour_list == []:
+            contour = None
+        else:
+            contour = contour_list[kk]
         is_broken = is_broken_list[kk]
         if is_closed_list == []:
             is_closed = None
@@ -1785,6 +1812,24 @@ def check_before_seeding_folder(folder_path: Path) -> bool:
         return True
     else:
         return False
+    
+
+def determine_how_to_process_compiled_data(run_compiled_data:bool,is_bi_folder:bool,is_bs_folder:bool):
+    if is_bi_folder and run_compiled_data:
+        print("Since run_before_injury_and_after_injury_together option is True, before injury information will be processed as part of the compiled folder.")
+        print("The compiled folder is processed when the corresponding after injury folder is called, OR if the compiled folder is called directly.")
+        print("To analyze the before injury folder separately, please set run_before_injury_and_after_injury_together in the .yaml file to False.")
+        return 0
+    elif is_bs_folder and run_compiled_data:
+        print("Before seeding information currently cannot be processed with before injury and after injury data.")
+        print("Processing before seeding data separately...")
+        return 1
+    elif run_compiled_data:
+        print("Processing before injury and after injury data together in the compiled folder...")
+        return 2
+    else:
+        # no compiling data
+        return 3
 
 
 def run_all(folder_path: Path) -> List:
@@ -1794,23 +1839,36 @@ def run_all(folder_path: Path) -> List:
     time_all.append(time.time())
     action_all.append("start")
     input_dict, input_path_dict, output_path_dict = input_info_to_dicts(folder_path)
-    time_all.append(time.time())
-    action_all.append("loaded input")
-    zoom_fcn = com.select_zoom_function(input_dict)
     is_in_bi_folder = check_before_injury_folder(folder_path)
     is_in_bs_folder = check_before_seeding_folder(folder_path)
+    time_all.append(time.time())
+    action_all.append("loaded input")
+    process_ind = determine_how_to_process_compiled_data(input_dict["run_before_injury_and_after_injury_together"],is_in_bi_folder,is_in_bs_folder)
+    if process_ind==0:
+        sys.exit(0)
+    elif process_ind==2:
+        compiled_img_paths,compiled_info_dict,compiled_mapping_index,adjusted_low_quality_frame_inds = fm.prepare_compiled_folder(folder_path,"ph1")
+        input_dict["low_quality_frame_inds"] = adjusted_low_quality_frame_inds
+        folder_path = compiled_info_dict["compiled_folder_path"]
+        output_path_dict = input_info_to_output_paths(folder_path=folder_path, input_dict=input_dict)
+        time_all.append(time.time())
+        action_all.append("compiled before injury and after injury data into new folder")
+    else:
+        compiled_img_paths = None
+    zoom_fcn = com.select_zoom_function(input_dict)
+    low_quality_frame_inds = input_dict["low_quality_frame_inds"]
     avg_pos_all_x = None
     avg_pos_all_y = None
     pillar_masks_list = None
-    frame_inds_to_skip = input_dict["frame_inds_to_skip"]
-
+    
     if input_dict["segment_brightfield"] is True:
         input_path = input_path_dict["brightfield_images_path"]
         output_path = output_path_dict["segment_brightfield_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, True, False, False, False)
+        img_list_bf = read_all_tiff(input_path,compiled_img_paths)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
-        _, _, _, _, _, _, _, _, _, img_list_bf, tissue_contour_list_bf, wound_contour_list_bf, tissue_param_list_bf, is_broken_list_bf, is_closed_list_bf = run_segment(
-            input_path, output_path, thresh_fcn, zoom_fcn, frame_inds_to_skip=frame_inds_to_skip
+        _, _, _, _, _, _, _, _, _, tissue_contour_list_bf, wound_contour_list_bf, tissue_param_list_bf, is_broken_list_bf, is_closed_list_bf = run_segment(
+            img_list_bf, output_path, thresh_fcn, zoom_fcn, low_quality_frame_inds=low_quality_frame_inds
             )
         time_all.append(time.time())
         action_all.append("segmented brightfield")
@@ -1818,33 +1876,21 @@ def run_all(folder_path: Path) -> List:
         input_path = input_path_dict["fluorescent_images_path"]
         output_path = output_path_dict["segment_fluorescent_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, True, False, False)
+        img_list_fl = read_all_tiff(input_path,compiled_img_paths)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
-        _, _, _, _, _, _, _, _, _, img_list_fl, tissue_contour_list_fl, wound_contour_list_fl, tissue_param_list_fl, is_broken_list_fl, is_closed_list_fl = run_segment(
-            input_path, output_path, thresh_fcn, zoom_fcn, frame_inds_to_skip=frame_inds_to_skip
+        _, _, _, _, _, _, _, _, _, tissue_contour_list_fl, wound_contour_list_fl, tissue_param_list_fl, is_broken_list_fl, is_closed_list_fl = run_segment(
+            img_list_fl, output_path, thresh_fcn, zoom_fcn, low_quality_frame_inds=low_quality_frame_inds
             )
         time_all.append(time.time())
         action_all.append("segmented fluorescent")
-    if input_dict["track_pillars_ph1"] is True:
-        output_path = output_path_dict["track_pillars_ph1_path"]
-        input_path = input_path_dict["ph1_images_path"]
-        img_list_ph1 = read_all_tiff(input_path,frame_inds_to_skip)
-        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_ph1, output_path, mask_seg_type=2,is_bs=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
-        time_all.append(time.time())
-        action_all.append("run pillar texture tracking")
-    if input_dict["track_pillars_dic"] is True:
-        output_path = output_path_dict["track_pillars_dic_path"]
-        input_path = input_path_dict["dic_images_path"]
-        img_list_dic = read_all_tiff(input_path,frame_inds_to_skip)
-        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_dic, output_path, mask_seg_type=2,is_bs=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
-        time_all.append(time.time())
-        action_all.append("run pillar texture tracking")
     if input_dict["segment_ph1"] is True:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["segment_ph1_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
+        img_list_ph1 = read_all_tiff(input_path,compiled_img_paths)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
-        _, _, _, _, _, _, _, _, _, img_list_ph1, tissue_contour_list_ph1, wound_contour_list_ph1, tissue_param_list_ph1, is_broken_list_ph1, is_closed_list_ph1 = run_segment(
-            input_path, output_path, thresh_fcn, zoom_fcn, avg_pos_all_x,avg_pos_all_y,is_in_bi_folder,is_in_bs_folder, frame_inds_to_skip=frame_inds_to_skip
+        _, _, _, _, _, _, _, _, _, tissue_contour_list_ph1, wound_contour_list_ph1, tissue_param_list_ph1, is_broken_list_ph1, is_closed_list_ph1 = run_segment(
+            img_list_ph1, output_path, thresh_fcn, zoom_fcn,is_in_bi_folder,is_in_bs_folder, low_quality_frame_inds=low_quality_frame_inds
         )
         time_all.append(time.time())
         action_all.append("segmented ph1")
@@ -1852,23 +1898,38 @@ def run_all(folder_path: Path) -> List:
         input_path = input_path_dict["dic_images_path"]
         output_path = output_path_dict["segment_dic_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, False, False, True)
+        img_list_dic = read_all_tiff(input_path,compiled_img_paths)
         # throw errors here if input_path == None? (future) and/or output dir isn't created
-        _, _, _, _, _, _, _, _, _, img_list_dic, tissue_contour_list_dic, wound_contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic = run_segment(
-            input_path, output_path, thresh_fcn, zoom_fcn, avg_pos_all_x,avg_pos_all_y,is_in_bi_folder,is_in_bs_folder
+        _, _, _, _, _, _, _, _, _, tissue_contour_list_dic, wound_contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic = run_segment(
+            img_list_dic, output_path, thresh_fcn, zoom_fcn,is_in_bi_folder,is_in_bs_folder
         )
         time_all.append(time.time())
         action_all.append("segmented dic")
+    if input_dict["track_pillars_ph1"] is True:
+        output_path = output_path_dict["track_pillars_ph1_path"]
+        input_path = input_path_dict["ph1_images_path"]
+        img_list_ph1 = read_all_tiff(input_path,compiled_img_paths)
+        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_ph1, output_path,is_bs=is_in_bs_folder,low_quality_frame_inds=low_quality_frame_inds)
+        time_all.append(time.time())
+        action_all.append("run pillar texture tracking")
+    if input_dict["track_pillars_dic"] is True:
+        output_path = output_path_dict["track_pillars_dic_path"]
+        input_path = input_path_dict["dic_images_path"]
+        img_list_dic = read_all_tiff(input_path,compiled_img_paths)
+        pillar_masks_list,avg_pos_all_x,avg_pos_all_y,_, _ = run_texture_tracking_pillars(img_list_dic, output_path,is_bs=is_in_bs_folder,low_quality_frame_inds=low_quality_frame_inds)
+        time_all.append(time.time())
+        action_all.append("run pillar texture tracking")
     if input_dict["seg_bf_visualize"] is True:
         output_path = output_path_dict["segment_brightfield_vis_path"]
         fname = "brightfield_contour"
-        _ = run_seg_visualize(output_path, img_list_bf, tissue_contour_list_bf, wound_contour_list_bf, tissue_param_list_bf, is_broken_list_bf, is_closed_list_bf, fname, frame_inds_to_skip=frame_inds_to_skip)
+        _ = run_seg_visualize(output_path, img_list_bf, tissue_contour_list_bf, wound_contour_list_bf, tissue_param_list_bf, is_broken_list_bf, is_closed_list_bf, fname)
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
         action_all.append("visualized brightfield")
     if input_dict["seg_fl_visualize"] is True:
         output_path = output_path_dict["segment_fluorescent_vis_path"]
         fname = "fluorescent_contour"
-        _ = run_seg_visualize(output_path, img_list_fl, tissue_contour_list_fl, wound_contour_list_fl, tissue_param_list_fl, is_broken_list_fl, is_closed_list_fl, fname, frame_inds_to_skip=frame_inds_to_skip)
+        _ = run_seg_visualize(output_path, img_list_fl, tissue_contour_list_fl, wound_contour_list_fl, tissue_param_list_fl, is_broken_list_fl, is_closed_list_fl, fname)
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
         action_all.append("visualized fluorescent")
@@ -1876,7 +1937,7 @@ def run_all(folder_path: Path) -> List:
         output_path = output_path_dict["segment_ph1_vis_path"]
         fname = "ph1_contour"
         _ = run_seg_visualize(output_path, img_list_ph1, tissue_contour_list_ph1, wound_contour_list_ph1, tissue_param_list_ph1, is_broken_list_ph1, is_closed_list_ph1, fname,
-                              avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder,is_in_bs_folder=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
+                              avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder,is_in_bs_folder=is_in_bs_folder)
         combine_images(folder_path=output_path,output_path=output_path,image_type=fname)
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
@@ -1885,7 +1946,7 @@ def run_all(folder_path: Path) -> List:
         output_path = output_path_dict["segment_dic_vis_path"]
         fname = "dic_contour"
         _ = run_seg_visualize(output_path, img_list_dic, tissue_contour_list_dic, wound_contour_list_dic, tissue_param_list_dic, is_broken_list_dic, is_closed_list_dic, fname,
-                              avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder,is_in_bs_folder=is_in_bs_folder,frame_inds_to_skip=frame_inds_to_skip)
+                              avg_pos_all_x, avg_pos_all_y,pillar_masks=pillar_masks_list,is_in_bi_folder=is_in_bi_folder,is_in_bs_folder=is_in_bs_folder)
         combine_images(folder_path=output_path,output_path=output_path,image_type=fname)
         # throw errors here if necessary segmentation data doesn't exist
         time_all.append(time.time())
@@ -1900,15 +1961,16 @@ def run_all(folder_path: Path) -> List:
         input_path = input_path_dict["ph1_images_path"]
         output_path = output_path_dict["track_ph1_path"]
         thresh_fcn = seg.select_threshold_function(input_dict, False, False, True, False)
+        img_list_ph1 = read_all_tiff(input_path,compiled_img_paths)
         tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, _, _, _, _, _, _, _, _ = run_texture_tracking(
-            input_path, output_path, thresh_fcn,frame_inds_to_skip=frame_inds_to_skip
+            img_list_ph1, output_path, thresh_fcn,low_quality_frame_inds=low_quality_frame_inds
             )
         time_all.append(time.time())
         action_all.append("run texture tracking")
     if input_dict["track_ph1_visualize"] is True and tracker_x_forward.size!=0 and tracker_y_forward.size!=0:
         output_path = output_path_dict["track_ph1_vis_path"]
         input_path = input_path_dict["ph1_images_path"]
-        img_list_ph1 = read_all_tiff(input_path,frame_inds_to_skip)
+        img_list_ph1 = read_all_tiff(input_path,compiled_img_paths)
         wound_contour_list_ph1 = load_contour_coords(folder_path,img_type="ph1")
         is_broken_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_broken_vs_frame.txt"))
         is_closed_list_ph1 = list(np.loadtxt(str(folder_path) + "/segment_ph1/is_closed_vs_frame.txt"))
@@ -1918,7 +1980,7 @@ def run_all(folder_path: Path) -> List:
     # if input_dict["track_dic_visualize"] is True and tracker_x_forward.size!=0 and tracker_y_forward.size!=0:
     #     output_path = output_path_dict["track_dic_vis_path"]
     #     input_path = input_path_dict["dic_images_path"]
-    #     img_list_dic = read_all_tiff(input_path,frame_inds_to_skip)
+    #     img_list_dic = read_all_tiff(input_path,compiled_img_paths)
     #     wound_contour_list_dic = load_contour_coords(folder_path,img_type="dic")
     #     if is_in_bs_folder:
     #         is_broken_list_dic = []

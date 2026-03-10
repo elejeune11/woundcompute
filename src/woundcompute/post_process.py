@@ -166,29 +166,6 @@ def get_defl_decoupled(defl_x: np.ndarray, defl_y: np.ndarray, mat_inv: np.ndarr
     return new_disp
 
 
-def drift_correct_pillar_track(output_path: Path):
-    pillar_disp_x, pillar_disp_y = get_pillar_info(output_path)
-    pillar_defl_x = pos_to_disp(pillar_disp_x)
-    pillar_defl_y = pos_to_disp(pillar_disp_y)
-    num_frames = pillar_disp_x.shape[0]
-    num_pillars = pillar_disp_x.shape[1]
-    rigid_x = np.zeros((pillar_disp_x.shape[0], 1))
-    rigid_y = np.zeros((pillar_disp_y.shape[0], 1))
-    if num_pillars == 4:
-        pillar_defl_x_update = np.zeros(pillar_defl_x.shape)
-        pillar_defl_y_update = np.zeros(pillar_defl_y.shape)
-        _, mat_inv = get_drift_mat()
-        for jj in range(0, num_frames):
-            new_disp = get_defl_decoupled(pillar_defl_x[jj, :], pillar_defl_y[jj, :], mat_inv)
-            pillar_defl_x_update[jj, :] = new_disp[0:4, 0]
-            pillar_defl_y_update[jj, :] = new_disp[4:8, 0]
-            rigid_x[jj, :] = new_disp[8, 0]
-            rigid_y[jj, :] = new_disp[9, 0]
-        return pillar_defl_x_update, pillar_defl_y_update, rigid_x, rigid_y
-    else:
-        return pillar_defl_x, pillar_defl_y, rigid_x, rigid_y
-
-
 def get_angle_and_distance(x, y, cx, cy):
     """
     Calculate the angle (in radians) and squared Euclidean distance from a point (x, y) 
@@ -452,3 +429,23 @@ def compute_absolute_actual_pillar_disps(
     avg_actual_disps = np.sum(abs_actual_pillar_disps,axis=1)/4
 
     return abs_actual_pillar_disps,avg_actual_disps,actual_dx,actual_dy
+
+
+def get_displacements_of_pillar_distance_to_centroid_of_pillars(all_pos_x:np.ndarray,all_pos_y:np.ndarray):
+    """Given pillar positions over time, compute the centroid of the pillars at each frame.
+    Then, compute the distance of each pillar center to the centroid of the pillars."""
+    num_frames,num_pillars = all_pos_x.shape
+    centroid_of_pillars = np.zeros((num_frames,2))
+    centroid_of_pillars[:,0] = np.mean(all_pos_x,axis=1)
+    centroid_of_pillars[:,1] = np.mean(all_pos_y,axis=1)
+    dist_from_cent_all_pillars = np.zeros((num_frames,num_pillars))
+    for pil_ind in range(num_pillars):
+        cur_px = all_pos_x[:,pil_ind]
+        cur_py = all_pos_y[:,pil_ind]
+        dist_from_cent_all_pillars[:,pil_ind] = np.sqrt((cur_px - centroid_of_pillars[:,0])**2 + (cur_py - centroid_of_pillars[:,1])**2)
+    
+    displacements_of_pillar_distance_to_centroid = dist_from_cent_all_pillars - dist_from_cent_all_pillars[0,:]
+    
+    avg_disp_of_dist_from_cent_all_pillars = np.mean(displacements_of_pillar_distance_to_centroid,axis=1)
+
+    return displacements_of_pillar_distance_to_centroid,avg_disp_of_dist_from_cent_all_pillars,dist_from_cent_all_pillars,centroid_of_pillars

@@ -190,38 +190,21 @@ def test_get_defl_decoupled():
     assert np.isclose(new_disp[7] + new_disp[9], defl_y[1, 3])[0]
 
 
-def test_drift_correct_pillar_track_3p():
-    folder_path = example_path("test_ph1_movie_mini_Anish")
-    yaml_path = folder_path.joinpath("test_ph1_mini_movie.yaml").resolve()
-    input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
-    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
-    _, _ = ia.run_all(folder_path)
-    output_path = path_dict["track_pillars_ph1_path"]
-    pillar_disp_x, pillar_disp_y = pp.get_pillar_info(output_path)
-    pillar_defl_x_gt = pp.pos_to_disp(pillar_disp_x)
-    pillar_defl_y_gt = pp.pos_to_disp(pillar_disp_y)
-    pillar_defl_x, pillar_defl_y, rigid_x, rigid_y = pp.drift_correct_pillar_track(output_path)
-    assert np.allclose(pillar_defl_x_gt, pillar_defl_x)
-    assert np.allclose(pillar_defl_y_gt, pillar_defl_y)
-    assert np.allclose(np.zeros(rigid_x.shape), rigid_x)
-    assert np.allclose(np.zeros(rigid_y.shape), rigid_y)
-
-
-def test_drift_correct_pillar_track():
-    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
-    yaml_path = folder_path.joinpath("test_ph1_mini_movie_with_tracking.yaml").resolve()
-    input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
-    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
-    _, _ = ia.run_all(folder_path)
-    output_path = path_dict["track_pillars_ph1_path"]
-    pillar_disp_x, pillar_disp_y = pp.get_pillar_info(output_path)
-    pillar_defl_x_gt = pp.pos_to_disp(pillar_disp_x)
-    pillar_defl_y_gt = pp.pos_to_disp(pillar_disp_y)
-    pillar_defl_x, pillar_defl_y, rigid_x, rigid_y = pp.drift_correct_pillar_track(output_path)
-    assert np.allclose(pillar_defl_x_gt, pillar_defl_x) is False
-    assert np.allclose(pillar_defl_y_gt, pillar_defl_y) is False
-    assert np.allclose(np.zeros(rigid_x.shape), rigid_x) is False
-    assert np.allclose(np.zeros(rigid_y.shape), rigid_y) is False
+# def test_drift_correct_pillar_track():
+#     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+#     yaml_path = folder_path.joinpath("test_ph1_mini_movie_with_tracking.yaml").resolve()
+#     input_dict = ia._yml_to_dict(yml_path_file=yaml_path)
+#     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+#     _, _ = ia.run_all(folder_path)
+#     output_path = path_dict["track_pillars_ph1_path"]
+#     pillar_disp_x, pillar_disp_y = pp.get_pillar_info(output_path)
+#     pillar_defl_x_gt = pp.pos_to_disp(pillar_disp_x)
+#     pillar_defl_y_gt = pp.pos_to_disp(pillar_disp_y)
+#     pillar_defl_x, pillar_defl_y, rigid_x, rigid_y = pp.drift_correct_pillar_track(output_path)
+#     assert np.allclose(pillar_defl_x_gt, pillar_defl_x) is False
+#     assert np.allclose(pillar_defl_y_gt, pillar_defl_y) is False
+#     assert np.allclose(np.zeros(rigid_x.shape), rigid_x) is False
+#     assert np.allclose(np.zeros(rigid_y.shape), rigid_y) is False
 
 
 def test_get_angle_and_distance_basic():
@@ -641,3 +624,18 @@ def test_compute_absolute_actual_pillar_disps():
     )
     assert not np.allclose(pillar_disps[1], 0.0)
     assert not np.allclose(avg_pillar_disps[1], 0.0)
+
+
+def test_get_displacements_of_pillar_distance_to_centroid_of_pillars():
+    all_pos_x = np.array([[1.0, 7.0],[2.0, 4.0],[2.0, 4.0]])
+    all_pos_y = np.array([[1.0, 1.0],[2.0, 2.0],[2.0, 4.0]])
+    known_centroids = np.array([[4.0,1.0],[3.0,2.0],[3.0,3.0]])
+    known_distances = np.array([[3.0,3.0],[1.0,1.0],[np.sqrt((1)**2 + (1)**2),np.sqrt((1)**2 + (1)**2)]])
+    known_disps = known_distances - known_distances[0,:]
+    known_avg_disps = np.mean(known_disps,axis=1)
+    found_disps,found_avg_disps,found_distances,found_centroids = pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(all_pos_x,all_pos_y)
+    assert np.allclose(found_disps,known_disps)
+    assert np.allclose(found_avg_disps,known_avg_disps)
+    assert np.allclose(found_distances,known_distances)
+    assert np.allclose(found_centroids,known_centroids)
+    

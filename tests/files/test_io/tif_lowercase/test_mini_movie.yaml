@@ -25,4 +25,5 @@ seg_dic_version: 1
 seg_dic_visualize: false
 track_dic_visualize: false
 track_pillars_dic: false
-frame_inds_to_skip: []
+run_before_injury_and_after_injury_together: false
+low_quality_frame_inds:: []

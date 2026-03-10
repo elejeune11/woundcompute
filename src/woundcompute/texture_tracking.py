@@ -80,6 +80,41 @@ def get_order_track(len_img_list: int, is_forward: bool) -> List:
         return list(range(len_img_list - 1, -1, -1))
 
 
+def move_value_to_front(value_list, value):
+    """Given a list and a value in the list, move the value to the front of the list."""
+    value_list = value_list.copy()
+    idx = value_list.index(value)
+    value_list.insert(0, value_list.pop(idx))
+    return value_list
+
+
+def get_img_edge_distances_to_point(point, img):
+    """Calculate distances from a point to all four edges."""
+    x, y = point
+    height, width = img.shape
+    
+    distances = {
+        'top': y,
+        'bottom': height - 1 - y,
+        'left': x,
+        'right': width - 1 - x
+    }
+    
+    return distances
+
+
+def closest_img_edge_to_point(point, img):
+    """
+    Find which edge of the image a point is closest to.
+    """
+    distances = get_img_edge_distances_to_point(point, img)
+    
+    edge = min(distances, key=distances.get)
+    distance = distances[edge]
+    
+    return edge, distance
+
+
 def track_all_steps(img_list_uint8: List, mask: np.ndarray, order_list: List, is_pillar: bool = False) -> np.ndarray:
     """Given the image list, mask, and order. Will run tracking through the whole img list in order.
     Note that the returned order of tracked points will match order_list."""
@@ -275,34 +310,89 @@ def template_match_tracking_with_masked_template(
     # note: for non-normalized residual functions, user must be careful about whether the tracking template is close to black or white
     # for example, a completely black template will give the opposite matching results compare to a white template
     res = cv2.matchTemplate(img_cropped_to_template_with_buffer, template, res_func,mask=mask_cropped_to_template_with_buffer.astype(np.uint8))
-    _, _, min_loc, max_loc = cv2.minMaxLoc(res)
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
     if res_func is cv2.TM_CCORR_NORMED or res_func is cv2.TM_CCOEFF or res_func is cv2.TM_CCOEFF_NORMED:
         top_left = [max_loc[0]+c_local_to_global,max_loc[1]+r_local_to_global]
+        abs_val = max_val
     elif res_func is cv2.TM_SQDIFF or res_func is cv2.TM_SQDIFF_NORMED or res_func is cv2.TM_CCORR:
         top_left = [min_loc[0]+c_local_to_global,min_loc[1]+r_local_to_global]
+        abs_val = min_val
     bottom_right = (top_left[0] + w, top_left[1] + h)
     x0, y0 = top_left
     xf, yf = bottom_right
     center_pt = np.zeros((2,))
     center_pt[0] = (xf - x0) / 2 + x0
     center_pt[1] = (yf - y0) / 2 + y0
-    return np.array([x0, y0, xf, yf]), center_pt
+
+    return abs_val, center_pt
 
 
-def template_track_all_steps(img_list_uint8, pillar_mask, order_list, pillar_mask_buffer: int = 200,res_func=cv2.TM_CCORR):
+def template_track_all_steps(
+    img_list_uint8: List,
+    pillar_mask: np.ndarray,
+    order_list: List,
+    pillar_mask_buffer: int = 200,
+    res_func=cv2.TM_CCORR,
+    relative_residual_diff_thresh:float=0.35,
+):
     time_0 = order_list[0]
     template = seg.mask_to_template(img_list_uint8[time_0], pillar_mask)
     pillar_mask_cropped_to_template = seg.mask_to_template(pillar_mask,pillar_mask)
+    pillar_mask_cut_dict = {}
+    pillar_mask_cut_cropped_to_template_dict = {}
+    template_cut_dict = {}
     tracker_x = []
     tracker_y = []
     for kk in range(0, len(img_list_uint8)):
+
+        # initial tracking
         img = img_list_uint8[order_list[kk]]
-        # img_masked = seg.mask_img_for_pillar_track(img, pillar_mask, pillar_mask_buffer)
-        # _, center_pt = template_match_tracking(img_masked, template)
         img_cropped, (r_min,_,c_min,_) = seg.cut_img_for_pillar_track(img,pillar_mask,pillar_mask_buffer)
-        _, center_pt = template_match_tracking_with_masked_template(
+        abs_val, center_pt = template_match_tracking_with_masked_template(
             img_cropped,template,pillar_mask_cropped_to_template,r_min,c_min,res_func=res_func
         )
+
+        # compute residual at global extrema
+        if kk == 0:
+            template_frame_res_abs_val = abs_val
+            rel_diff = 0
+        else:
+            rel_diff = np.abs(template_frame_res_abs_val - abs_val) / template_frame_res_abs_val
+        
+
+
+        # if the relative difference between the extrema of the current frame and
+        # the extrema of the template frame, retrack the pillar with a smaller mask.
+        # This accounts for the pillar going off frame.
+        if rel_diff >= relative_residual_diff_thresh:
+            closest_edge,_=closest_img_edge_to_point(center_pt, img)
+            if closest_edge in pillar_mask_cut_dict:
+                pm_cut = pillar_mask_cut_dict[closest_edge]
+                pm_cut_cropped = pillar_mask_cut_cropped_to_template_dict[closest_edge]
+                template_cut = template_cut_dict[closest_edge]
+            else:
+                pm_cut = seg.cut_pillar_mask_away_from_edge(pillar_mask,closest_edge)
+                pm_cut_cropped = seg.mask_to_template(pm_cut,pm_cut)
+                template_cut = seg.mask_to_template(img_list_uint8[time_0], pm_cut)
+                pillar_mask_cut_dict[closest_edge] = pm_cut
+                pillar_mask_cut_cropped_to_template_dict[closest_edge] = pm_cut_cropped
+                template_cut_dict[closest_edge] = template_cut
+            
+            img_cropped, (r_min,_,c_min,_) = seg.cut_img_for_pillar_track(img,pm_cut,pillar_mask_buffer)
+            abs_val, center_pt_semi_cir = template_match_tracking_with_masked_template(
+                img_cropped,template_cut,pm_cut_cropped,r_min,c_min,res_func=res_func
+            )
+
+            template_h,template_w = template_cut.shape
+            if closest_edge == 'top':
+                center_pt = center_pt_semi_cir + [0,-template_h/2]
+            elif closest_edge == 'bottom':
+                center_pt = center_pt_semi_cir + [0,template_h/2]
+            elif closest_edge == 'left':
+                center_pt = center_pt_semi_cir + [-template_w/2,0]
+            elif closest_edge == 'right':
+                center_pt = center_pt_semi_cir + [template_w/2,0]
+
         tracker_x.append(center_pt[0])
         tracker_y.append(center_pt[1])
     tracker_x = np.asarray(tracker_x)
@@ -310,12 +400,22 @@ def template_track_all_steps(img_list_uint8, pillar_mask, order_list, pillar_mas
     return tracker_x, tracker_y
 
 
-def perform_pillar_tracking(pillar_mask_list: List, img_list: List, version: int = 2, res_func=cv2.TM_CCORR):
+def perform_pillar_tracking(
+    pillar_mask_list: List,
+    img_list: List,
+    pillar_masks_frame_ind:int=0,
+    version: int = 2,
+    res_func=cv2.TM_CCORR
+):
+    img_list_hist_norm = seg.histogram_match_all_imgs_to_reference(img_list,pillar_masks_frame_ind)
     # convert img_list to all uint8 images
-    img_list_uint8 = uint16_to_uint8_all(img_list)
+    img_list_uint8 = uint16_to_uint8_all(img_list_hist_norm)
     len_img_list = len(img_list_uint8)
     is_forward = True
     order_list = get_order_track(len_img_list, is_forward)
+    # start tracking with the frame the pillar masks are extracted
+    if pillar_masks_frame_ind != 0:
+        order_list=move_value_to_front(order_list, pillar_masks_frame_ind)
     # for each pillar mask perform tracking
     num_pillars = len(pillar_mask_list)
     avg_pos_all_x = np.zeros((len_img_list, num_pillars))
@@ -335,4 +435,12 @@ def perform_pillar_tracking(pillar_mask_list: List, img_list: List, version: int
         else:
             avg_pos_all_x[:, kk] = tracker_x
             avg_pos_all_y[:, kk] = tracker_y
+    # move tracking positions back to chronological order
+    if pillar_masks_frame_ind!=0:
+        corrected_avg_pos_all_x = np.zeros_like(avg_pos_all_x)
+        corrected_avg_pos_all_y = np.zeros_like(avg_pos_all_y)
+        for pos_ind,order_ind in enumerate(order_list):
+            corrected_avg_pos_all_x[order_ind,:] = avg_pos_all_x[pos_ind,:]
+            corrected_avg_pos_all_y[order_ind,:] = avg_pos_all_y[pos_ind,:]
+        return corrected_avg_pos_all_x,corrected_avg_pos_all_y
     return avg_pos_all_x, avg_pos_all_y

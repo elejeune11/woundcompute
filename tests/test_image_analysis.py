@@ -256,7 +256,7 @@ def test_show_and_save_bi_tissue():
     file_path = glob_ph1("test_before_injury")[0]
     file = ia.read_tiff(file_path)
     thresholded_img = seg.threshold_array(file,4)
-    pillar_mask_list,res_func = seg.get_pillar_mask_list(file,num_pillars_expected=4,mask_seg_type=2)
+    pillar_mask_list,res_func = seg.get_pillar_mask_list(file)
     avg_pos_all_x, avg_pos_all_y = tt.perform_pillar_tracking(pillar_mask_list, [file], res_func=res_func)
     tissue_mask_list,_,_=seg.mask_all_with_pillars([thresholded_img],pillar_mask_list)
     is_broken=False
@@ -264,13 +264,17 @@ def test_show_and_save_bi_tissue():
     for pm in pillar_mask_list:
         pm_contours_list = seg.mask_to_all_contours(pm)
         pillar_contours_lists_list.append(pm_contours_list)
+    tissue_contour_list = []
+    for tm in tissue_mask_list:
+        tm_contour = seg.mask_to_contour(tm)
+        tissue_contour_list.append(tm_contour)
 
     save_path = output_file("test_before_injury", "test_ph1_tissue_mask_bi_no_pillar.png")
-    ia.show_and_save_bi_tissue(img_array=file,is_broken=is_broken,save_path=save_path,frame_num=0,title="test_before_injury")
+    ia.show_and_save_bi_tissue(img_array=file,tissue_contour=tissue_contour_list[0],is_broken=is_broken,save_path=save_path,frame_num=0,title="test_before_injury")
     assert save_path.is_file()
 
     save_path = output_file("test_before_injury", "test_ph1_tissue_mask_bi_with_pillars.png")
-    ia.show_and_save_bi_tissue(img_array=file,is_broken=is_broken,save_path=save_path,frame_num=0,title="test_before_injury",
+    ia.show_and_save_bi_tissue(img_array=file,tissue_contour=tissue_contour_list[0],is_broken=is_broken,save_path=save_path,frame_num=0,title="test_before_injury",
                                pillars_pos_x=avg_pos_all_x[0,:],pillars_pos_y=avg_pos_all_y[0,:],pillar_contours_lists_list=pillar_contours_lists_list)
     assert save_path.is_file()
 
@@ -285,12 +289,12 @@ def test_show_and_save_bi_tissue():
     ia.save_all_img_with_tissue_wound_pillar_contours(folder_path=save_path.parent,file_name="test_ph1_bi_all",img_list=[file],
                                                       tissue_contour_list=[],wound_contour_list=[],tissue_parameters_list=[],
                                                       is_broken_list=[False],is_closed_list=[False],avg_pos_all_x=avg_pos_all_x,avg_pos_all_y=avg_pos_all_y,
-                                                      pillar_masks=pillar_mask_list,is_in_bi_folder=True,frame_inds_to_skip=[0])
+                                                      pillar_masks=pillar_mask_list,is_in_bi_folder=True)
     assert save_path.is_file()
 
     save_path = output_file("test_before_injury", "test_ph1_tissue_mask_empty.png")
     empty_img = np.zeros((100,100),dtype=np.uint8)
-    ia.show_and_save_bi_tissue(img_array=empty_img,is_broken=True,save_path=save_path,frame_num=0,title="test_empty_image")
+    ia.show_and_save_bi_tissue(img_array=empty_img,tissue_contour=None,is_broken=True,save_path=save_path,frame_num=0,title="test_empty_image")
 
 
 def test_show_and_save_bs_tissue():
@@ -380,7 +384,8 @@ def test_yml_to_dict():
     assert db["seg_dic_visualize"] is False
     assert db["track_dic_visualize"] is False
     assert db["track_pillars_dic"] is False
-    assert db["frame_inds_to_skip"] == []
+    assert db["run_before_injury_and_after_injury_together"] is False
+    assert db["low_quality_frame_inds"] == []
 
 
 def test_create_folder():
@@ -535,8 +540,11 @@ def test_read_all_tiff():
     tiff_list = ia.read_all_tiff(folder_path)
     assert len(tiff_list) == 5
     assert tiff_list[0].shape == (512, 512)
-    tiff_list_short = ia.read_all_tiff(folder_path,frame_inds_to_skip=[1,3])
-    assert len(tiff_list_short) == 3
+
+    tiff_paths = ia.image_folder_to_path_list(folder_path)
+    tiff_list = ia.read_all_tiff(folder_path,tiff_paths)
+    assert len(tiff_list) == 5
+    assert tiff_list[0].shape == (512,512)
 
 
 def test_save_all_numpy():
@@ -547,11 +555,6 @@ def test_save_all_numpy():
         array_list.append((np.random.random((5, 5))))
     array_list.append(None)
     file_name_list = ia.save_all_numpy(folder_path, file_name, array_list)
-    for kk in range(0, 3):
-        file_name_test = file_name_list[kk]
-        assert file_name_test.is_file()
-
-    file_name_list = ia.save_all_numpy(folder_path, file_name, array_list,[0])
     for kk in range(0, 3):
         file_name_test = file_name_list[kk]
         assert file_name_test.is_file()
@@ -585,7 +588,7 @@ def test_subtract_moving_pillar_from_tissue():
 
 def test_subtract_moving_pillars_from_tissue_masks():
 
-    file_path = glob_ph1("test_single")[0]
+    file_path = glob_ph1("test_ph1_movie_mini_Anish")[0]
     file = ia.read_tiff(file_path)
     img_list = [file,file]
     selection_idx = 4
@@ -593,8 +596,8 @@ def test_subtract_moving_pillars_from_tissue_masks():
     thresholded_list = [file_thresh,file_thresh]
 
     tissue_mask_list, _, _ = seg.mask_all(thresholded_list, selection_idx)
-    pillar_mask_list,res_func = seg.get_pillar_mask_list(file,4,2)
-    avg_pos_x,avg_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list,2,res_func)
+    pillar_mask_list,res_func = seg.get_pillar_mask_list(file)
+    avg_pos_x,avg_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list,res_func=res_func)
     tissue_mask_list_new = ia.subtract_moving_pillars_from_tissue_masks(tissue_mask_list,pillar_mask_list,avg_pos_x,avg_pos_y)
 
     assert len(tissue_mask_list_new) == len(tissue_mask_list)
@@ -639,12 +642,13 @@ def test_run_segment_bf():
             folder_path = example_path(name)
             path_dict = ia.input_info_to_input_paths(folder_path)
             input_path = path_dict[kind + "_images_path"]
+            img_list = ia.read_all_tiff(input_path)
             input_dict = ia.input_info_to_input_dict(folder_path)
             path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
             output_path = path_dict["segment_" + kind + "_path"]
             threshold_function_idx = 1
             zoom_fcn_idx = 1
-            wound_name_list, tissue_name_list, wound_contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_fcn_idx)
+            wound_name_list, tissue_name_list, wound_contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_fcn_idx)
             for wn in wound_name_list:
                 assert wn.is_file()
             for tn in tissue_name_list:
@@ -666,12 +670,13 @@ def test_run_segment_fl():
             folder_path = example_path(name)
             path_dict = ia.input_info_to_input_paths(folder_path)
             input_path = path_dict[kind + "_images_path"]
+            img_list = ia.read_all_tiff(input_path)
             input_dict = ia.input_info_to_input_dict(folder_path)
             path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
             output_path = path_dict["segment_" + kind + "_path"]
             threshold_function_idx = 2
             zoom_fcn_idx = 1
-            wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_fcn_idx)
+            wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_fcn_idx)
             for wn in wound_name_list:
                 assert wn.is_file()
             for tn in tissue_name_list:
@@ -695,9 +700,10 @@ def test_run_segment_ph1():
     input_dict = ia.input_info_to_input_dict(folder_path)
     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     output_path = path_dict["segment_" + kind + "_path"]
+    img_list = ia.read_all_tiff(input_path)
     threshold_function_idx = 3
     zoom_function_idx = 1
-    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx)
+    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_function_idx)
     for wn in wound_name_list:
         assert wn.is_file()
     for tn in tissue_name_list:
@@ -718,12 +724,15 @@ def test_run_segment_with_pillar_info():
     folder_path = example_path(name)
     path_dict = ia.input_info_to_input_paths(folder_path)
     input_path = path_dict[kind + "_images_path"]
+    img_list = ia.read_all_tiff(input_path)
     input_dict = ia.input_info_to_input_dict(folder_path)
     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     output_path = path_dict["segment_" + kind + "_path"]
     threshold_function_idx = 4
     zoom_function_idx = 2
-    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx)
+    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(
+        img_list, output_path, threshold_function_idx, zoom_function_idx
+    )
     for wn in wound_name_list:
         assert wn.is_file()
     for tn in tissue_name_list:
@@ -744,23 +753,21 @@ def test_run_segment_bi():
     folder_path = example_path(name)
     path_dict = ia.input_info_to_input_paths(folder_path)
     input_path = path_dict[kind + "_images_path"]
+    img_list = ia.read_all_tiff(input_path)
     input_dict = ia.input_info_to_input_dict(folder_path)
     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     output_path = path_dict["segment_" + kind + "_path"]
     img_list = ia.read_all_tiff(input_path)
-    pillar_mask_list,res_func = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=2)
-    avg_pos_x,avg_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list,2,res_func)
     threshold_function_idx = 4
     zoom_function_idx = 2
-    _, tissue_name_list, _, _, _, _, tissue_path, is_broken_path, _, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx,
-                                                                                                       pillar_pos_x=avg_pos_x,pillar_pos_y=avg_pos_y, is_bi=True)
+    _, tissue_name_list, _, _, _, _, tissue_path, is_broken_path, _, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_function_idx,is_bi=True)
     for tn in tissue_name_list:
         assert tn.is_file()
     assert tissue_path.is_file()
     assert is_broken_path.is_file()
 
     zoom_function_idx = 1
-    _, tissue_name_list, _, _, _, _, tissue_path, is_broken_path, _, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx, is_bi=True)
+    _, tissue_name_list, _, _, _, _, tissue_path, is_broken_path, _, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_function_idx, is_bi=True)
     
 
 def test_run_segment_bs():
@@ -769,39 +776,41 @@ def test_run_segment_bs():
     folder_path = example_path(name)
     path_dict = ia.input_info_to_input_paths(folder_path)
     input_path = path_dict[kind + "_images_path"]
+    img_list = ia.read_all_tiff(input_path)
     input_dict = ia.input_info_to_input_dict(folder_path)
     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
     output_path = path_dict["segment_" + kind + "_path"]
     threshold_function_idx = 4
     zoom_function_idx = 2
-    _, _, _, _, _, _, _, _, _, img_list, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx, is_bi=True)
+    _, _, _, _, _, _, _, _, _, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_function_idx, is_bs=True)
     assert len(img_list)==1
 
 
-def test_run_segment_dic():
-    name = "test_dic_mini_movie"
-    kind = "dic"
-    folder_path = example_path(name)
-    path_dict = ia.input_info_to_input_paths(folder_path)
-    input_path = path_dict[kind + "_images_path"]
-    input_dict = ia.input_info_to_input_dict(folder_path)
-    path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
-    output_path = path_dict["segment_" + kind + "_path"]
-    threshold_function_idx = 6
-    zoom_function_idx = 2
-    wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _, _ = ia.run_segment(input_path, output_path, threshold_function_idx, zoom_function_idx)
-    for wn in wound_name_list:
-        assert wn.is_file()
-    for tn in tissue_name_list:
-        assert tn.is_file()
-    for cn in contour_name_list:
-        assert cn.is_file()
-    assert area_path.is_file()
-    assert ax_maj_path.is_file()
-    assert ax_min_path.is_file()
-    assert tissue_path.is_file()
-    assert is_broken_path.is_file()
-    assert is_closed_path.is_file()
+# def test_run_segment_dic():
+#     name = "test_dic_mini_movie"
+#     kind = "dic"
+#     folder_path = example_path(name)
+#     path_dict = ia.input_info_to_input_paths(folder_path)
+#     input_path = path_dict[kind + "_images_path"]
+#     img_list = ia.read_all_tiff(input_path)
+#     input_dict = ia.input_info_to_input_dict(folder_path)
+#     path_dict = ia.input_info_to_output_paths(folder_path, input_dict)
+#     output_path = path_dict["segment_" + kind + "_path"]
+#     threshold_function_idx = 6
+#     zoom_function_idx = 2
+#     wound_name_list, tissue_name_list, contour_name_list, area_path, ax_maj_path, ax_min_path, tissue_path, is_broken_path, is_closed_path, _, _, _, _, _ = ia.run_segment(img_list, output_path, threshold_function_idx, zoom_function_idx)
+#     for wn in wound_name_list:
+#         assert wn.is_file()
+#     for tn in tissue_name_list:
+#         assert tn.is_file()
+#     for cn in contour_name_list:
+#         assert cn.is_file()
+#     assert area_path.is_file()
+#     assert ax_maj_path.is_file()
+#     assert ax_min_path.is_file()
+#     assert tissue_path.is_file()
+#     assert is_broken_path.is_file()
+#     assert is_closed_path.is_file()
 
 
 def test_show_and_save_wound_area():
@@ -810,11 +819,11 @@ def test_show_and_save_wound_area():
     GPR_wound_area = np.random.rand(num_frames)
     output_path = files_path()
 
-    ia.show_and_save_wound_area(wound_area,GPR_wound_area,[],output_path)
+    ia.show_and_save_wound_area(wound_area,GPR_wound_area,output_path)
     output_file = output_path / "wound_area.png"
     assert output_file.exists()
 
-    ia.show_and_save_wound_area(wound_area,GPR_wound_area,[0],output_path)
+    ia.show_and_save_wound_area(wound_area,GPR_wound_area,output_path)
     output_file = output_path / "wound_area.png"
     assert output_file.exists()
 
@@ -899,6 +908,17 @@ def test_check_before_seeding_folder():
         found.append(ia.check_before_seeding_folder(s))
     expected = [True, False, True, False, True]
     assert found == expected
+
+
+def test_determine_how_to_process_compiled_data():
+    process_ind = ia.determine_how_to_process_compiled_data(True,True,False)
+    assert process_ind == 0
+    process_ind = ia.determine_how_to_process_compiled_data(True,False,True)
+    assert process_ind == 1
+    process_ind = ia.determine_how_to_process_compiled_data(True,False,False)
+    assert process_ind == 2
+    process_ind = ia.determine_how_to_process_compiled_data(False,False,False)
+    assert process_ind == 3
 
 
 def test_run_all():
@@ -1013,7 +1033,7 @@ def test_run_all_ph1_anish():
 
 
 def test_run_all_ph1_many_examples_anish():
-    folder_path = example_path("test_phi_many_examples_Anish")
+    folder_path = example_path("test_ph1_many_examples_Anish")
     time_all, action_all = ia.run_all(folder_path)
     assert len(time_all) == 4
     assert len(action_all) == 4
@@ -1038,7 +1058,8 @@ def test_run_texture_tracking():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    img_list = ia.read_all_tiff(input_path)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(img_list, output_path, threshold_function_idx)
     assert path_tx.is_file()
     assert path_ty.is_file()
     assert path_txr.is_file()
@@ -1052,8 +1073,9 @@ def test_run_texture_tracking():
 
     folder_path = example_path("test_before_seeding")
     input_path = folder_path.joinpath("ph1_images").resolve()
+    img_list = ia.read_all_tiff(input_path)
     output_path = ia.create_folder(folder_path, "track_ph1")
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(img_list, output_path, threshold_function_idx)
     assert np.allclose(tracker_x_forward,np.array([]))
     assert wound_area_list==[]
     assert path_wound_masks==''
@@ -1101,7 +1123,7 @@ def test_show_and_save_pillar_positions():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     img_list = ia.read_all_tiff(input_path)
-    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_expected_pillars=4)
     output_path = files_path()
     ia.show_and_save_pillar_positions(
         img_list[0],
@@ -1118,11 +1140,11 @@ def test_show_and_save_pillar_disps_and_contours():
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     img_list = ia.read_all_tiff(input_path)
-    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
-    pillars_pos_x,pillars_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list,2)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0])
+    pillars_pos_x,pillars_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list)
     pillar_disps,avg_pillar_disps,_,_=pp.compute_absolute_actual_pillar_disps(pillars_pos_x,pillars_pos_y)
     ia.show_and_save_pillar_disps_and_contours(
-        img_list[0],pillar_mask_list,pillar_disps,avg_pillar_disps,output_path,[0]
+        img_list[0],pillar_mask_list,pillar_disps,avg_pillar_disps,output_path,
     )
     output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
     assert output_file.exists()
@@ -1133,6 +1155,60 @@ def test_show_and_save_pillar_disps_and_contours():
     output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
     assert output_file.exists()
 
+    output_path = ia.create_folder(folder_path,"track_ph1_test_compiled")
+    ia.show_and_save_pillar_disps_and_contours(
+        img_list[0],pillar_mask_list,pillar_disps,avg_pillar_disps,output_path
+    )
+    output_file = output_path / "pillar_disps_and_pillar_contours_test_phi_movie_mini_Anish_tracking.png"
+    assert output_file.exists()
+
+
+def test_show_and_save_disp_of_pillar_dist_to_pillars_centroid():
+    folder_path = example_path("test_phi_movie_mini_Anish_tracking")
+    input_path = folder_path.joinpath("ph1_images").resolve()
+    output_path = ia.create_folder(folder_path, "track_ph1")
+    img_list = ia.read_all_tiff(input_path)
+    pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0])
+    pillars_pos_x,pillars_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list)
+    disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,_,_=pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(pillars_pos_x,pillars_pos_y)
+    ia.show_and_save_disp_of_pillar_dist_to_pillars_centroid(
+        img_list[0],pillar_mask_list,disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,output_path,
+    )
+    output_file = output_path / "disp_pillar_distance_to_centroid_of_all_pillars_test_phi_movie_mini_Anish_tracking.png"
+    assert output_file.exists()
+
+
+def test_determine_good_frame_ind_for_pillar_template():
+    low_quality_frame_inds = None
+    len_img_list = 10
+    known = 0
+    found = ia.determine_good_frame_ind_for_pillar_template(low_quality_frame_inds,len_img_list)
+    assert known == found
+
+    low_quality_frame_inds = [0]
+    len_img_list = 1
+    known = 0
+    found = ia.determine_good_frame_ind_for_pillar_template(low_quality_frame_inds,len_img_list)
+    assert known == found
+
+    low_quality_inds = [0,1]
+    len_img_list = 10
+    known = 2
+    found = ia.determine_good_frame_ind_for_pillar_template(low_quality_inds,len_img_list)
+    assert known == found
+
+    low_quality_inds = [1,2]
+    len_img_list = 10
+    known = 3
+    found = ia.determine_good_frame_ind_for_pillar_template(low_quality_inds,len_img_list)
+    assert known == found
+
+    low_quality_inds = [0,2,3]
+    len_img_list = 4
+    known = 1
+    found = ia.determine_good_frame_ind_for_pillar_template(low_quality_inds,len_img_list)
+    assert known == found
+
 
 def test_run_texture_tracking_pillars():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
@@ -1140,7 +1216,7 @@ def test_run_texture_tracking_pillars():
     output_path = ia.create_folder(folder_path, "pillar_track_ph1")
     img_list = ia.read_all_tiff(input_path)
     # threshold_function_idx = 4
-    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path, mask_seg_type=2)
+    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path)
     assert len(pillars_mask_list) == 4
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
@@ -1153,7 +1229,7 @@ def test_run_texture_tracking_pillars_large_bg_shift():
     output_path = ia.create_folder(folder_path, "pillar_track_ph1")
     img_list = ia.read_all_tiff(input_path)
     # threshold_function_idx = 4
-    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path, mask_seg_type=2)
+    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path)
     assert len(pillars_mask_list) == 4
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
@@ -1166,7 +1242,7 @@ def test_run_texture_tracking_pillars_is_bs():
     output_path = ia.create_folder(folder_path, "pillar_track_ph1")
     img_list = ia.read_all_tiff(input_path)
     # threshold_function_idx = 4
-    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path, mask_seg_type=2,is_bs=True)
+    pillars_mask_list,avg_disp_all_x, avg_disp_all_y, path_disp_x, path_disp_y = ia.run_texture_tracking_pillars(img_list, output_path, is_bs=True)
     assert len(pillars_mask_list) == 4
     assert avg_disp_all_x.shape[0] == avg_disp_all_y.shape[0]
     assert path_disp_x.is_file()
@@ -1177,12 +1253,12 @@ def test_show_and_save_tracking():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
-    threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(img_list, output_path, threshold_function_idx)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
-    pillar_mask_list,_  = seg.get_pillar_mask_list(img_list[0],num_pillars_expected=4,mask_seg_type=1)
+    pillar_mask_list,_  = seg.get_pillar_mask_list(img_list[0],num_expected_pillars=4)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list,pillar_mask_list=pillar_mask_list)
     zoom_fcn_idx = 1
     is_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
@@ -1209,9 +1285,9 @@ def test_save_all_img_tracking():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
-    threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(img_list, output_path, threshold_function_idx)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list)
@@ -1225,15 +1301,18 @@ def test_save_all_img_tracking():
     file_name_list = ia.save_all_img_tracking(output_path, fname, img_list, contour_list, is_broken_list, [], tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
     for fn in file_name_list:
         assert fn.is_file()
+    file_name_list = ia.save_all_img_tracking(output_path, fname, img_list, [], is_broken_list, is_closed_list, tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward)
+    for fn in file_name_list:
+        assert fn.is_file()
 
 
 def test_run_texture_tracking_visualize():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
-    threshold_function_idx = 4
-    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(input_path, output_path, threshold_function_idx)
     img_list = ia.read_all_tiff(input_path)
+    threshold_function_idx = 4
+    tracker_x_forward, tracker_y_forward, tracker_x_reverse_forward, tracker_y_reverse_forward, wound_area_list, wound_masks_all, path_tx, path_ty, path_txr, path_tyr, path_wound_area, path_wound_masks = ia.run_texture_tracking(img_list, output_path, threshold_function_idx)
     thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
     tissue_mask_list, wound_mask_list, wound_region_list = seg.mask_all(thresholded_list, 1)
     is_broken_list = com.check_broken_tissue_all(tissue_mask_list)

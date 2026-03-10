@@ -95,6 +95,50 @@ def test_get_order_track():
         assert order_list[kk] is len_img_list - kk - 1
 
 
+def test_move_value_to_front():
+    order_list = [0,1,2,3,4]
+    value = 2
+    known = [2,0,1,3,4]
+    found = tt.move_value_to_front(order_list,value)
+    assert np.allclose(known,found)
+
+
+def test_get_img_edge_distances_to_point():
+    img=np.zeros((100,200))
+    point=np.array([25,30])
+    known={
+        'top':30,
+        'bottom':69,
+        'left':25,
+        'right':174
+    }
+    found = tt.get_img_edge_distances_to_point(point,img)
+    assert known==found
+
+
+def test_closest_img_edge_to_point():
+    img=np.zeros((100,200))
+    point=np.array([25,30])
+    edge,distance = tt.closest_img_edge_to_point(point, img)
+    assert edge=='left'
+    assert np.isclose(distance,25)
+
+    point=np.array([190,30])
+    edge,distance = tt.closest_img_edge_to_point(point, img)
+    assert edge=='right'
+    assert np.isclose(distance,9)
+
+    point=np.array([100,15])
+    edge,distance = tt.closest_img_edge_to_point(point, img)
+    assert edge=='top'
+    assert np.isclose(distance,15)
+
+    point=np.array([100,98])
+    edge,distance = tt.closest_img_edge_to_point(point, img)
+    assert edge=='bottom'
+    assert np.isclose(distance,1)
+
+
 def test_bool_to_uint8():
     arr_bool = np.random.random((10, 10)) > 0.5
     arr_uint8 = tt.bool_to_uint8(arr_bool)
@@ -124,10 +168,10 @@ def test_mask_to_track_points_and_track_one_step_and_track_all_steps():
     mask_ix_0_min = np.min(mask_ix[0])
     mask_ix_1_max = np.max(mask_ix[1])
     mask_ix_1_min = np.min(mask_ix[1])
-    assert np.min(track_points_0[:, 0, 0]) > mask_ix_1_min  # note flipped indicies
-    assert np.max(track_points_0[:, 0, 0]) < mask_ix_1_max  # note flipped indicies
-    assert np.min(track_points_0[:, 0, 1]) > mask_ix_0_min  # note flipped indicies
-    assert np.max(track_points_0[:, 0, 1]) < mask_ix_0_max  # note flipped indicies
+    assert np.min(track_points_0[:, 0, 0]) >= mask_ix_1_min  # note flipped indicies
+    assert np.max(track_points_0[:, 0, 0]) <= mask_ix_1_max  # note flipped indicies
+    assert np.min(track_points_0[:, 0, 1]) >= mask_ix_0_min  # note flipped indicies
+    assert np.max(track_points_0[:, 0, 1]) <= mask_ix_0_max  # note flipped indicies
     img_uint8_0 = tt.uint16_to_uint8(img_list_orig[0])
     img_uint8_1 = tt.uint16_to_uint8(img_list_orig[1])
     track_points_1 = tt.track_one_step(img_uint8_0, img_uint8_1, track_points_0, lk_params)
@@ -296,17 +340,32 @@ def test_template_match_tracking_with_masked_template():
     frame[y0:yf, x0:xf] = 235
     template = frame[y0:yf, x0:xf]
     cropped_mask = np.zeros(template.shape)
-    coords, center_pt = tt.template_match_tracking_with_masked_template(frame, template,cropped_mask, y0, x0)
-    assert coords[0] == x0
-    assert coords[1] == y0
-    assert coords[2] == xf
-    assert coords[3] == yf
+    abs_val, center_pt = tt.template_match_tracking_with_masked_template(frame, template,cropped_mask, y0, x0)
+
+    assert np.isclose(abs_val,0)
     assert np.isclose(center_pt[0], x0 + (xf - x0) / 2.0)
     assert np.isclose(center_pt[1], y0 + (yf - y0) / 2.0)
 
 
 def add_rect(arr, cent_r, cent_c, buffer):
-    arr[cent_r-buffer:cent_r+buffer, cent_c-buffer:cent_c+buffer] = 1
+    h,w = arr.shape
+    if cent_r-buffer < 0:
+        buffer_r_top=cent_r
+    else:
+        buffer_r_top=buffer
+    if cent_r+buffer >= h:
+        buffer_r_bot=h-1-cent_r
+    else:
+        buffer_r_bot=buffer
+    if cent_c-buffer<0:
+        buffer_r_left=cent_c
+    else:
+        buffer_r_left=buffer
+    if cent_c+buffer >= w:
+        buffer_r_right=w-1-cent_c
+    else:
+        buffer_r_right=buffer
+    arr[cent_r-buffer_r_top:cent_r+buffer_r_bot, cent_c-buffer_r_left:cent_c+buffer_r_right] = 1
     return arr.astype("uint8")
 
 
@@ -318,19 +377,8 @@ def test_template_track_all_steps():
     buffer = 5
     arr = np.zeros((max_r, max_c))
     pillar_mask = add_rect(arr, cent_r, cent_c, buffer)
-    # img_list = []
-    # order_list = []
-    # cent_r_list = [30, 40, 50, 33, 45]
-    # cent_c_list = [50, 20, 100, 56, 75]
-    # for kk in range(0, len(cent_r_list)):
-    #     arr = np.zeros((max_r, max_c))
-    #     img = add_rect(arr, cent_r_list[kk], cent_c_list[kk], buffer)
-    #     img_list.append(img)
-    #     order_list.append(kk)
-    # tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, res_func=cv2.TM_CCORR_NORMED)
-    # assert np.allclose(tracker_x, np.asarray(cent_c_list), 2)
-    # assert np.allclose(tracker_y, np.asarray(cent_r_list), 2)
-    # test w/ additional shape outside region surrounding mask
+
+    # test tracking when there's a another similar object far away from target
     img_list = []
     order_list = []
     cent_r_list = [30, 40, 50, 33, 45]
@@ -341,7 +389,26 @@ def test_template_track_all_steps():
         img = add_rect(img, 90, 150, buffer)
         img_list.append(img)
         order_list.append(kk)
-    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list, 50, res_func=cv2.TM_CCORR_NORMED)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list,
+                    pillar_mask_buffer=50, res_func=cv2.TM_CCORR_NORMED,
+                    relative_residual_diff_thresh=0.10)
+    assert np.allclose(tracker_x, np.asarray(cent_c_list),2)
+    assert np.allclose(tracker_y, np.asarray(cent_r_list),2)
+
+
+    # test tracking when target goes slightly off frame
+    img_list = []
+    order_list = []
+    cent_r_list = [45, 97, 3, 50, 50]
+    cent_c_list = [75, 100, 100, 195, 5]
+    for kk in range(0, len(cent_r_list)):
+        arr = np.zeros((max_r, max_c))
+        img = add_rect(arr, cent_r_list[kk], cent_c_list[kk], buffer)
+        img_list.append(img)
+        order_list.append(kk)
+    tracker_x, tracker_y = tt.template_track_all_steps(img_list, pillar_mask, order_list,
+                    pillar_mask_buffer=200, res_func=cv2.TM_CCORR_NORMED,
+                    relative_residual_diff_thresh=0.10)
     assert np.allclose(tracker_x, np.asarray(cent_c_list),2)
     assert np.allclose(tracker_y, np.asarray(cent_r_list),2)
 

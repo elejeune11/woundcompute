@@ -168,10 +168,10 @@ def test_get_local_curvature():
 def test_sort_points_counterclockwise():
     points = np.array([[0,0],[1,1],[0,1],[1,0]])
     known = np.array([[0,0],[1,0],[1,1],[0,1]])
-    found = com.sort_points_counterclockwise(points)
+    found,_ = com.sort_points_counterclockwise(points)
     assert np.allclose(known,found)
     known = np.array([[0,1],[1,1],[1,0],[0,0]])
-    found = com.sort_points_counterclockwise(points,clockwise=True)
+    found,_ = com.sort_points_counterclockwise(points,clockwise=True)
     assert np.allclose(known,found)
 
 
@@ -831,6 +831,23 @@ def test_check_wound_closed_all_Anish():
         assert check_closed_list[kk] is True
 
 
+def test_check_wound_closed_with_both_bi_and_ai():
+    folder_path = example_path("test_ai_bi_together")
+    _, input_path_dict, _ = ia.input_info_to_dicts(folder_path)
+    folder_path = input_path_dict["ph1_images_path"]
+    img_list = ia.read_all_tiff(folder_path)
+    img_list[0],img_list[-1] = img_list[-1],img_list[0]
+    threshold_function_idx = 4
+    zoom_fcn_idx = 2
+    thresholded_list = seg.threshold_all(img_list, threshold_function_idx)
+    tissue_mask_list, _, wound_region_list = seg.mask_all(thresholded_list, threshold_function_idx)
+    print(wound_region_list)
+    check_closed_list = com.check_wound_closed_all(tissue_mask_list, wound_region_list, zoom_fcn_idx)
+    print(check_closed_list)
+    for kk in range(0, 4):
+        assert check_closed_list[kk] is False
+
+
 def test_mask_to_area():
     rad_1 = 5
     disk_1 = morphology.disk(rad_1, dtype=bool)
@@ -959,7 +976,7 @@ def test_select_zoom_function():
 def test_compute_linear_healing_rate():
     area_list = [100, 400, 100, 25]
     perimeter_list = [40, 80, 40, 20]
-    known = [0, -300/80, 300/40, 75/20]
+    known = [0, 2*300/120, -2*300/120, -2*75/60]
     found = com.compute_linear_healing_rate(area_list, perimeter_list, 1.0)
     assert np.allclose(known,found)
 

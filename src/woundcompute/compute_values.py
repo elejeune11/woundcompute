@@ -150,7 +150,7 @@ def sort_points_counterclockwise(points:np.ndarray, center:np.ndarray=None, cloc
         angles = -angles
 
     sorted_indices = np.argsort(angles)
-    return points[sorted_indices]
+    return points[sorted_indices],sorted_indices
 
 
 def mask_to_box(mask: np.ndarray, border: int = 0) -> np.ndarray:
@@ -167,8 +167,8 @@ def mask_to_box(mask: np.ndarray, border: int = 0) -> np.ndarray:
     coordinates = np.column_stack(np.where(mask_mod_one > 0))
     # find minimum area bounding rectangle
     rect = cv2.minAreaRect(coordinates)
-    box = np.int0(cv2.boxPoints(rect))
-    sorted_box = sort_points_counterclockwise(box)
+    box = np.intp(cv2.boxPoints(rect)) # old func np.int0
+    sorted_box,_ = sort_points_counterclockwise(box)
     return sorted_box
 
 
@@ -788,11 +788,18 @@ def check_wound_closed(tissue_mask: np.ndarray, wound_region: object):
 def check_wound_closed_all(tissue_mask_list: List, wound_region_list: List, zoom_fcn_idx: int) -> List:
     """Given tissue and wound lists. Will return a list if all tissues are closed."""
     check_wound_closed_list = []
+    first_opening_happened = False
     for kk in range(0, len(tissue_mask_list)):
         if zoom_fcn_idx == 1:
             is_closed = check_wound_closed_zoom(tissue_mask_list[kk], wound_region_list[kk])
         elif zoom_fcn_idx == 2:
             is_closed = check_wound_closed(tissue_mask_list[kk], wound_region_list[kk])
+        
+        # closure determination starts after first opening detected
+        if not first_opening_happened and is_closed:
+            is_closed = False
+        elif not first_opening_happened and not is_closed:
+            first_opening_happened = True
         check_wound_closed_list.append(is_closed)
     return check_wound_closed_list
 
@@ -956,27 +963,28 @@ def select_zoom_function(
         return 3
 
 
-def compute_linear_healing_rate(area_list:List,perimeter_list:List,time_change_mins:float=30)->List:
+def compute_linear_healing_rate(area_list:List,perimeter_list:List,time_change_hours:float=0.5)->List:
     """Given the area and perimeter of a wound over time, compute the linear healing rate according to Gilman's equation."""
     len_area = len(area_list)
     len_peri = len(perimeter_list)
     # if len_area!=len_peri:
     #     raise ValueError("Area and perimeter lists must be the same length.")
-    gilmans_list = []
+    gilmans_linear_healing_rate_list = []
     for ii in range(len_area):
         if ii == 0:
-            gilmans_list.append(0)
+            gilmans_linear_healing_rate_list.append(0)
             continue
 
         prev_area = area_list[ii-1]
         cur_area = area_list[ii]
+        prev_peri = perimeter_list[ii-1]
         cur_peri = perimeter_list[ii]
         if cur_area == 0 or cur_peri == 0:
-            gilmans_list.append(0)
+            gilmans_linear_healing_rate_list.append(0)
         else:
-            D = - (cur_area - prev_area) / (cur_peri * time_change_mins)
-            gilmans_list.append(D)
-    return gilmans_list
+            D = 2*(cur_area-prev_area) / ( (cur_peri+prev_peri) * time_change_hours)
+            gilmans_linear_healing_rate_list.append(D)
+    return gilmans_linear_healing_rate_list
 
 
 def compute_dark_pixels_ratio_at_mask_edge(mask, gray_image):
