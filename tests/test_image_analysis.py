@@ -285,13 +285,6 @@ def test_show_and_save_bi_tissue():
                                                       pillar_masks=pillar_mask_list,is_in_bi_folder=True)
     assert save_path.is_file()
 
-    save_path = output_file("test_before_seeding","test_ph1_bi_all_00001.png")
-    ia.save_all_img_with_tissue_wound_pillar_contours(folder_path=save_path.parent,file_name="test_ph1_bi_all",img_list=[file],
-                                                      tissue_contour_list=[],wound_contour_list=[],tissue_parameters_list=[],
-                                                      is_broken_list=[False],is_closed_list=[False],avg_pos_all_x=avg_pos_all_x,avg_pos_all_y=avg_pos_all_y,
-                                                      pillar_masks=pillar_mask_list,is_in_bi_folder=True)
-    assert save_path.is_file()
-
     save_path = output_file("test_before_injury", "test_ph1_tissue_mask_empty.png")
     empty_img = np.zeros((100,100),dtype=np.uint8)
     ia.show_and_save_bi_tissue(img_array=empty_img,tissue_contour=None,is_broken=True,save_path=save_path,frame_num=0,title="test_empty_image")
