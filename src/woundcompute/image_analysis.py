@@ -58,20 +58,21 @@ def show_and_save_contour(
     title: str = " "
 ) -> None:
     """Given an image, contour, and path location. Will plot and save."""
-    plt.figure()
-    plt.imshow(img_array, cmap=plt.cm.gray)
+
+    fig,ax = plt.subplots(figsize=(8,6))
+    ax.imshow(img_array, cmap=plt.cm.gray)
     xt = 3.0 * img_array.shape[1] / 8.0
     yt = 7.0 * img_array.shape[0] / 8.0
     if is_broken:
-        plt.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
+        ax.text(xt, yt, "broken", color="r", backgroundcolor="w", fontsize=20)
     else:
         if is_closed:
-            plt.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
+            ax.text(xt, yt, "closed", color="r", backgroundcolor="w", fontsize=20)
         else:
             if contour is not None:
-                plt.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
-    plt.title(title)
-    plt.axis('off')
+                ax.plot(contour[:, 1], contour[:, 0], 'r', linewidth=2.0, antialiased=True)
+    ax.set_title(title)
+    ax.axis('off')
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
