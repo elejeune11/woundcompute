@@ -4,11 +4,13 @@ import numpy as np
 from pathlib import Path
 import pytest
 from skimage import io,draw
+import matplotlib
 from woundcompute import compute_values as com
 from woundcompute import image_analysis as ia
 from woundcompute import segmentation as seg
 from woundcompute import texture_tracking as tt
 from woundcompute import post_process as pp
+matplotlib.use('Agg')
 
 
 def files_path():
