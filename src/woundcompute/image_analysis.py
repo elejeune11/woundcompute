@@ -1064,7 +1064,6 @@ def run_segment(
     # save lists
     area_path = save_list(output_path, "wound_area_vs_frame", area_list)
     smoothed_area_path = save_list(output_path,"wound_area_vs_frame_GPR",wound_area_smoothed_GPR)
-    smoothed_area_path_png = save_list(output_path, "wound_area_vs_frame", wound_area_smoothed_GPR)
     ax_maj_path = save_list(output_path, "wound_major_axis_length_vs_frame", axis_major_length_list)
     ax_min_path = save_list(output_path, "wound_minor_axis_length_vs_frame", axis_minor_length_list)
     perimeter_path = save_list(output_path, "wound_perimeter_vs_frame", perimeter_list)
