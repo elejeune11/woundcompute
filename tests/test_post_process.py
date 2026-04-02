@@ -626,16 +626,16 @@ def test_compute_absolute_actual_pillar_disps():
     assert not np.allclose(avg_pillar_disps[1], 0.0)
 
 
-def test_get_displacements_of_pillar_distance_to_centroid_of_pillars():
+def test_get_change_in_pillar_distance_from_centroid_of_all_pillars():
     all_pos_x = np.array([[1.0, 7.0],[2.0, 4.0],[2.0, 4.0]])
     all_pos_y = np.array([[1.0, 1.0],[2.0, 2.0],[2.0, 4.0]])
     known_centroids = np.array([[4.0,1.0],[3.0,2.0],[3.0,3.0]])
     known_distances = np.array([[3.0,3.0],[1.0,1.0],[np.sqrt((1)**2 + (1)**2),np.sqrt((1)**2 + (1)**2)]])
-    known_disps = known_distances - known_distances[0,:]
-    known_avg_disps = np.mean(known_disps,axis=1)
-    found_disps,found_avg_disps,found_distances,found_centroids = pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(all_pos_x,all_pos_y)
-    assert np.allclose(found_disps,known_disps)
-    assert np.allclose(found_avg_disps,known_avg_disps)
+    known_change_in_dist = known_distances - known_distances[0,:]
+    known_avg_change_in_dist = np.mean(known_change_in_dist,axis=1)
+    found_change_in_dist,found_avg_change_in_dist,found_distances,found_centroids = pp.get_change_in_pillar_distance_from_centroid_of_all_pillars(all_pos_x,all_pos_y)
+    assert np.allclose(found_change_in_dist,known_change_in_dist)
+    assert np.allclose(found_avg_change_in_dist,known_avg_change_in_dist)
     assert np.allclose(found_distances,known_distances)
     assert np.allclose(found_centroids,known_centroids)
     

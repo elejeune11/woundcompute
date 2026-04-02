@@ -35,7 +35,7 @@ Due to the large volume of data gathered from our high-throughput experimental s
 
 `Preliminary Dataset + Software` $\mapsto$ `Larger Dataset + Software Testing and Validation` $\mapsto$ `Published Software Package` $\mapsto$ `Published Validation Examples and Tutorial` $\mapsto$ `Automated Analysis of High-Throughput Experiments`
 
-At present (December 2025), we have validated our software on our experimental dataset [LINK]. In the next stage, we are interested in expanding our software to track the motion of the microtissue and the tissue assembly process.
+At present (April 2026), we have validated our software on our experimental dataset [LINK]. In the next stage, we are interested in expanding our software to track the motion of the microtissue and the tissue assembly process.
 
 ## Installation Instructions <a name="install"></a>
 
@@ -173,7 +173,8 @@ seg_dic_version: 1
 seg_dic_visualize: false
 track_dic_visualize: false
 track_pillars_dic: false
-frame_inds_to_skip: [] # to skip analyzing blurry frames
+run_before_injury_and_after_injury_together: false
+low_quality_frame_inds: []
 ```
 Many of the inputs (noted ``# do not modify``) will only be relevant to future functionality. For running your own examples, the ``.yaml`` file should look identical to this example. However, you can change ``True`` to ``False`` for any step that you want to skip. For example, if your example does not have fluorescent images you should set ``segment_fluorescent``, ``seg_fl_visualize``, and ``bf_seg_with_fl_seg_visualize`` to ``False``. The ``.yaml`` file example shown above corresponds to the tutorial examples ``s18_B08``.
 
@@ -200,7 +201,7 @@ For the tutorial example, outputs are grouped according to the options in the ``
 * ``files/sample_dataset/s*/segment_ph1/is_broken_vs_frame.txt.txt``
 * ``files/sample_dataset/s*/segment_ph1/is_closed_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/pillar_*.txt``
-* ``files/sample_dataset/s*/segment_ph1/tissue_mask_*.npy``
+* ``files/sample_dataset/s*/segment_ph1/tissue_footprint_mask_*.npy``
 * ``files/sample_dataset/s*/segment_ph1/tissue_parameters_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_area_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_area_vs_frame_GPR.txt``
@@ -208,7 +209,7 @@ For the tutorial example, outputs are grouped according to the options in the ``
 * ``files/sample_dataset/s*/segment_ph1/wound_major_axis_length_vs_frame.txt``
 * ``files/sample_dataset/s*/segment_ph1/wound_minor_axis_length_vs_frame.txt``
  
- The files ``contour_coords_*.npy`` contain the coordinates of the points outlining the wound, while the files ``wound_mask_*.npy`` contain binary images depicting the wound masks. The files ``tissue_mask_*.npy`` and ``pillar_*.npy`` are the binary images of the microtissue masks and the pillar masks, respectively. Here, we show the images for the first frame, and the corresponding tissue mask and wound mask:
+ The files ``contour_coords_*.npy`` contain the coordinates of the points outlining the wound, while the files ``wound_mask_*.npy`` contain binary images depicting the wound masks. The files ``tissue_footprint_mask_*.npy`` and ``pillar_*.npy`` are the binary images of the microtissue masks and the pillar masks, respectively. Here, we show the images for the first frame, and the corresponding tissue footprint mask and wound mask:
 
 <p align="center">
 <img alt="segmentation_results" src="tutorials/figs/github_segmentation_results.png">
@@ -216,12 +217,12 @@ For the tutorial example, outputs are grouped according to the options in the ``
 The files ``is_broken_vs_frame.txt`` and ``is_closed_vs_frame.txt`` report ``0`` for ``False`` and ``1`` for ``True`` with one entry per frame. For example, if the tissue never breaks and never closes, both files will just contain a 1D array of zeros.
 
 The file ``tissue_parameters_vs_frame.txt`` has one row per frame, where the column entries (in order) are:
-* ``area``: area of the tissue mask
+* ``area``: area of the tissue footprint mask
 * ``pt1_0``: ``0`` coordinate of the first point (``pt1``) that defines tissue width
 * ``pt1_1``: ``1`` coordinate of the first point that defines tissue width
 * ``pt2_0``: ``0`` coordinate of the second point (``pt2``) that defines tissue width
 * ``pt2_1``: ``1`` coordinate of the second point that defines tissue width
-* ``width``: width of the tissue mask (distance between ``pt1`` and ``pt2``)
+* ``width``: width of the tissue footprint mask (distance between ``pt1`` and ``pt2``)
 * ``kappa_1``: tissue curvature at ``pt1``
 * ``kappa_2``: tissue curvature at ``pt2``
 
@@ -240,7 +241,7 @@ The files ``pillar_tracker_x.txt`` and ``pillar_tracker_y.txt`` contain the x an
 The file ``ph1_contour.gif`` (shown below) contains all images from ``ph1_contour_*.png`` showing the wound margin and pillars tracking over time. The ``.gif`` also includes visualizations notifying when the microtissue is broken, or when the wound is closed.
 
 <p align = "center">
-<img alt="contour visualization" src="tutorials/figs/via1_s54.gif" width="85%" />
+<img alt="contour visualization" src="tutorials/figs/via1_s75.gif" width="85%" />
 </p>
 
 ## Validation <a name="validation"></a>
@@ -274,7 +275,7 @@ While manual segmentation encounters reproducibility issues and fatigue in annot
 Then, we process the images via our software for analysis. Using the given heuristics, Wound Compute assesses every single pixel across all images in our high-throughput system, which provides results much more consistent than that of manual annotators. 
 Despite the variability in the shape of the manual wound segmentation (figure A below), the resulting manual wound areas are consistent. Hence, we can compare the wound areas from manual annotators to Wound Compute for validation. In the figure below (A), we observe that Wound Compute wound areas are close to that of the manual annotators, which means that the wound masks segmented by our software are plausible. While most of the data points in (A) are linearly correlated, there are some data points that show a significant difference between Wound Compute and manual annotators (i.e., points with black edges showing disparity in wound closure). At these points, Wound Compute has determined that the wound is closed, while the manual annotators think that the wound is still opened. This discrepancy occurs because the annotators segment every 5 frames, so when the wound closes and reopens, the annotators might miss the previous frames closure. We note that when the wounds close and reopen, they always close again.
 
-To validate the Wound Compute tissue segmentation results, we compare the tissue mask areas from Wound Compute to manual annotators for validation (figure B below). Here, we find that the tissue areas are generally consistent between our software and Wound Compute. However, we note that while our microtissue sometimes comes slightly off the pillars -- reducing its effective area, our manual annotators were not instructed to capture these changes. In these cases, Wound Compute is still able to delineate the background and the tissue when the tissue comes off the pillar temporarily. 
+To validate the WoundCompute tissue footprint segmentation results, we compare the tissue footprint mask areas from WoundCompute to manual annotators (Fig. B below). The tissue footprint mask covers the area of the tissue, the wound, and the micropillars. Since the wound area changes significantly over time, the use of the tissue footprint mask removes the effects of the wound area in our comparison. Here, we find that the tissue footprint areas are generally consistent between our software and WoundCompute.
 
 <p align = "center">
 <img alt="wc_vs_annotators" src="tutorials/figs/wc_vs_annotators.png" width="95%" />

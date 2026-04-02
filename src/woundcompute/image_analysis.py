@@ -152,14 +152,14 @@ def show_and_save_tissue_wound_pillar_contours(
         if scaled_pillar_contours_lists_list is not None:
             for pil_ind,pil_cont_list in enumerate(scaled_pillar_contours_lists_list):
                 for pil_cont_part in pil_cont_list:
-                    pil_contour_x_mean = np.mean(pil_cont_part[:,0])
-                    pil_contour_y_mean = np.mean(pil_cont_part[:,1])
-                    pil_cont_part[:,0] -= pil_contour_x_mean
-                    pil_cont_part[:,1] -= pil_contour_y_mean
+                    pil_contour_y_mean = np.mean(pil_cont_part[:,0])
+                    pil_contour_x_mean = np.mean(pil_cont_part[:,1])
+                    pil_cont_part[:,0] -= pil_contour_y_mean
+                    pil_cont_part[:,1] -= pil_contour_x_mean
 
-                    pil_cont_part[:,0] = pil_cont_part[:,0] + pillars_pos_x[pil_ind]
-                    pil_cont_part[:,1] = pil_cont_part[:,1] + pillars_pos_y[pil_ind]
-                    ax.plot(pil_cont_part[:,0],pil_cont_part[:,1],'cyan',linewidth=2.0, antialiased=True)
+                    pil_cont_part[:,0] = pil_cont_part[:,0] + pillars_pos_y[pil_ind]
+                    pil_cont_part[:,1] = pil_cont_part[:,1] + pillars_pos_x[pil_ind]
+                    ax.plot(pil_cont_part[:,1],pil_cont_part[:,0],'cyan',linewidth=2.0, antialiased=True)
 
         plt.title(title)
         plt.axis('off')
@@ -1491,14 +1491,14 @@ def show_and_save_pillar_disps_and_contours(
     return
 
 
-def show_and_save_disp_of_pillar_dist_to_pillars_centroid(
+def show_and_save_change_of_pillar_dist_from_centroid(
     img:np.ndarray,
     pillar_mask_list: List[np.ndarray],
-    disps_of_pillar_dist_to_centroid: np.ndarray,
-    avg_disps_of_pillar_dist_to_centroid: np.ndarray,
+    change_in_pillar_dist_from_centroid: np.ndarray,
+    avg_change_in_pillar_dist_from_centroid: np.ndarray,
     output_path:Path,
 ):
-    num_frames,num_pillars = disps_of_pillar_dist_to_centroid.shape
+    num_frames,num_pillars = change_in_pillar_dist_from_centroid.shape
     if "_compiled" in str(output_path):
         frame_inds_mapping = np.linspace(-1,num_frames-2,num_frames,dtype=int)
     else:
@@ -1513,8 +1513,8 @@ def show_and_save_disp_of_pillar_dist_to_pillars_centroid(
     axes[0].set_title('Pillar contours', fontsize=18)
     axes[0].axis('off')
 
-    axes[1].plot(frame_inds_mapping,avg_disps_of_pillar_dist_to_centroid,c='black',linewidth=2)
-    axes[1].set_title("Avg disp of pillar distance to pillars' centroid",fontsize=18)
+    axes[1].plot(frame_inds_mapping,avg_change_in_pillar_dist_from_centroid,c='black',linewidth=2)
+    axes[1].set_title("Avg change of pillar distance from pillars centroid",fontsize=18)
     axes[1].set_xlabel('frame number',fontsize=13)
     axes[1].set_ylabel('distance (pixels)',fontsize=13)
     axes[1].grid('on',ls=':')
@@ -1528,8 +1528,8 @@ def show_and_save_disp_of_pillar_dist_to_pillars_centroid(
             else:
                 axes[0].scatter(pm_cont[:, 1], pm_cont[:, 0], s=1, color=color)
     
-        axes[pil_ind+2].plot(frame_inds_mapping,disps_of_pillar_dist_to_centroid[:,pil_ind],label=f'p{pil_ind}',color=color)
-        axes[pil_ind+2].set_title(f'Disp of pillar {pil_ind} dist to centroid of all pillars',fontsize=18)
+        axes[pil_ind+2].plot(frame_inds_mapping,change_in_pillar_dist_from_centroid[:,pil_ind],label=f'p{pil_ind}',color=color)
+        axes[pil_ind+2].set_title(f'Change of pillar {pil_ind} dist to centroid of all pillars',fontsize=18)
         axes[pil_ind+2].set_xlabel('frame number',fontsize=13)
         axes[pil_ind+2].set_ylabel('distance (pixels)',fontsize=13)
         axes[pil_ind+2].grid('on',ls=':')
@@ -1537,7 +1537,7 @@ def show_and_save_disp_of_pillar_dist_to_pillars_centroid(
 
     plt.tight_layout()
     sample_name = output_path.parent.name
-    save_path = output_path.joinpath(f"disp_pillar_distance_to_centroid_of_all_pillars_{sample_name}.png").resolve()
+    save_path = output_path.joinpath(f"change_in_pillar_distance_from_centroid_{sample_name}.png").resolve()
     plt.savefig(save_path)
     plt.close()
     return
@@ -1583,19 +1583,19 @@ def run_texture_tracking_pillars(
     avg_pos_all_x, avg_pos_all_y = tt.perform_pillar_tracking(
         pillar_mask_list, img_list, pillar_masks_frame_ind=frame_ind_for_pillar_template,res_func=corresponding_res_func
         )
-    disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,_,_=pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(avg_pos_all_x,avg_pos_all_y)
+    change_in_pillar_distance_from_centroid,avg_change_in_pillar_distance_from_centroid,_,_=pp.get_change_in_pillar_distance_from_centroid_of_all_pillars(avg_pos_all_x,avg_pos_all_y)
 
     show_and_save_pillar_positions(img_for_pillar_template, pillar_mask_list, output_path)
-    show_and_save_disp_of_pillar_dist_to_pillars_centroid(img_for_pillar_template,pillar_mask_list,disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,output_path)
+    show_and_save_change_of_pillar_dist_from_centroid(img_for_pillar_template,pillar_mask_list,change_in_pillar_distance_from_centroid,avg_change_in_pillar_distance_from_centroid,output_path)
 
     # save data
     path_pos_x = output_path.joinpath("pillar_tracker_x.txt").resolve()
     path_pos_y = output_path.joinpath("pillar_tracker_y.txt").resolve()
-    path_disp_dist_to_centroid = output_path.joinpath("disp_pillar_dist_to_centroid.txt").resolve()
+    path_pillar_dist_to_centroid = output_path.joinpath("change_in_pillar_distance_from_centroid.txt").resolve()
 
     np.savetxt(str(path_pos_x), avg_pos_all_x)
     np.savetxt(str(path_pos_y), avg_pos_all_y)
-    np.savetxt(str(path_disp_dist_to_centroid), disp_of_dist_to_centroid)
+    np.savetxt(str(path_pillar_dist_to_centroid), change_in_pillar_distance_from_centroid)
 
     return pillar_mask_list, avg_pos_all_x, avg_pos_all_y, path_pos_x, path_pos_y
 

@@ -431,7 +431,7 @@ def compute_absolute_actual_pillar_disps(
     return abs_actual_pillar_disps,avg_actual_disps,actual_dx,actual_dy
 
 
-def get_displacements_of_pillar_distance_to_centroid_of_pillars(all_pos_x:np.ndarray,all_pos_y:np.ndarray):
+def get_change_in_pillar_distance_from_centroid_of_all_pillars(all_pos_x:np.ndarray,all_pos_y:np.ndarray):
     """Given pillar positions over time, compute the centroid of the pillars at each frame.
     Then, compute the distance of each pillar center to the centroid of the pillars."""
     num_frames,num_pillars = all_pos_x.shape
@@ -444,8 +444,8 @@ def get_displacements_of_pillar_distance_to_centroid_of_pillars(all_pos_x:np.nda
         cur_py = all_pos_y[:,pil_ind]
         dist_from_cent_all_pillars[:,pil_ind] = np.sqrt((cur_px - centroid_of_pillars[:,0])**2 + (cur_py - centroid_of_pillars[:,1])**2)
     
-    displacements_of_pillar_distance_to_centroid = dist_from_cent_all_pillars - dist_from_cent_all_pillars[0,:]
+    change_in_pillar_distance_from_centroid = dist_from_cent_all_pillars - dist_from_cent_all_pillars[0,:]
     
-    avg_disp_of_dist_from_cent_all_pillars = np.mean(displacements_of_pillar_distance_to_centroid,axis=1)
+    avg_change_in_pillar_distance_from_centroid = np.mean(change_in_pillar_distance_from_centroid,axis=1)
 
-    return displacements_of_pillar_distance_to_centroid,avg_disp_of_dist_from_cent_all_pillars,dist_from_cent_all_pillars,centroid_of_pillars
+    return change_in_pillar_distance_from_centroid,avg_change_in_pillar_distance_from_centroid,dist_from_cent_all_pillars,centroid_of_pillars
