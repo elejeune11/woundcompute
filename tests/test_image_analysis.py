@@ -1158,18 +1158,18 @@ def test_show_and_save_pillar_disps_and_contours():
     assert output_file.exists()
 
 
-def test_show_and_save_disp_of_pillar_dist_to_pillars_centroid():
+def test_show_and_save_change_of_pillar_dist_from_centroid():
     folder_path = example_path("test_phi_movie_mini_Anish_tracking")
     input_path = folder_path.joinpath("ph1_images").resolve()
     output_path = ia.create_folder(folder_path, "track_ph1")
     img_list = ia.read_all_tiff(input_path)
     pillar_mask_list,_ = seg.get_pillar_mask_list(img_list[0])
     pillars_pos_x,pillars_pos_y=tt.perform_pillar_tracking(pillar_mask_list,img_list)
-    disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,_,_=pp.get_displacements_of_pillar_distance_to_centroid_of_pillars(pillars_pos_x,pillars_pos_y)
-    ia.show_and_save_disp_of_pillar_dist_to_pillars_centroid(
-        img_list[0],pillar_mask_list,disp_of_dist_to_centroid,avg_disp_of_dist_to_centroid,output_path,
+    change_in_pillar_distance_from_centroid,avg_change_in_pillar_distance_from_centroid,_,_=pp.get_change_in_pillar_distance_from_centroid_of_all_pillars(pillars_pos_x,pillars_pos_y)
+    ia.show_and_save_change_of_pillar_dist_from_centroid(
+        img_list[0],pillar_mask_list,change_in_pillar_distance_from_centroid,avg_change_in_pillar_distance_from_centroid,output_path,
     )
-    output_file = output_path / "disp_pillar_distance_to_centroid_of_all_pillars_test_phi_movie_mini_Anish_tracking.png"
+    output_file = output_path / "change_in_pillar_distance_from_centroid_test_phi_movie_mini_Anish_tracking.png"
     assert output_file.exists()
 
 
